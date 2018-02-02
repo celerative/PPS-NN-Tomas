@@ -236,11 +236,11 @@ if len(data) >= 11000:
     model.save('model.h5')
     data_final = [(10000, x_train), (10000, y_train), (1000, x_test),
                   (1000, y_test), (1, x_predict)]
-    save = input("Save traini data? [Y/n]: ")
+    save = input("Save training data? [Y/n]: ")
     if save == 'y' or save == 'Y':
         np.save("processed_data", data)
         print("Training data were save!")
     else:
-        print("Training data weren't save")
+        print("Training data weren't save!")
 else:
     print("less than 11000 valid data. Abort training!")
