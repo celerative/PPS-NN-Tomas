@@ -1,0 +1,153 @@
+# Guide to install:
+# Nvidia drivers
+# CUDA Toolkit 9.0
+# cuDNN v7.0.5
+# Tensorflow 1.5.0
+# Keras 2.1.3
+# on Virtualenv
+# on Python 3.5.2
+# on Ubuntu 16.04
+# last update 5/feb/2018
+
+# Update packages
+sudo apt-get update
+sudo apt-get upgrade
+
+
+#############################################
+# NVIDIA driver
+# Add the ppa repo for NVIDIA graphics driver
+sudo add-apt-repository ppa:graphics-drivers/ppa
+sudo apt-get update
+
+# Install the recommended driver (currently nvidia-387.34)
+sudo ubuntu-drivers autoinstall
+sudo reboot
+
+# Check if drivers were installed
+nvidia-smi
+
+
+#############################################
+# Install CUDA Toolkit 9.0 for x64 Ubuntu 16.04
+# go to website and download CUDA Toolkit 9.0 (Sept 2017)
+# Linux -> x86_64 -> Ubutnu -> 16.04 -> runfile(local) -> BaseInstaller
+# https://developer.nvidia.com/cuda-toolkit-archive
+# run and follow the command-line prompts (read below)
+sudo ./cuda_9.0.176_384.81_linux.run
+
+#Do you accept the previously read EULA?
+#accept
+#
+#Install NVIDIA Accelerated Graphics Driver for Linux-x86_64 367.48?
+#n (we installed drivers previously)
+#
+#Install the CUDA 8.0 Toolkit?
+#y
+#
+#Enter Toolkit Location:
+#/usr/local/cuda-8.0 (enter)
+#
+#Do you wish to run the installation with ‚sudo’?
+#y
+#
+#Do you want to install a symbolic link at /usr/local/cuda?
+#y
+#
+#Install the CUDA 8.0 Samples?
+#y
+#
+#Enter CUDA Samples Location:
+#enter
+
+# Add CUDA to the user PATH
+# copy the following lines (1 to 9) at end of file '~/.bashrc'
+###########################
+#1 #cuda includes
+#2 export PATH=$PATH:/usr/local/cuda/bin
+#3
+#4 if [ -z $LD_LIBRARY_PATH ]; then
+#5   LD_LIBRARY_PATH=/usr/local/cuda/lib64:/usr/local/cuda/lib
+#6 else
+#7   LD_LIBRARY_PATH=$LD_LIBRARY_PATH:/usr/local/cuda/lib64:/usr/local/cuda/lib
+#8 fi
+#9 export LD_LIBRARY_PATH
+###########################
+# or add them by command lines below
+echo "" >> ~/.bashrc
+echo "# cuda includes" >> ~/.bashrc
+echo "export PATH=$PATH:/usr/local/cuda/bin" >> ~/.bashrc
+echo "" >> ~/.bashrc
+echo "if [ -z $LD_LIBRARY_PATH ]; then" >> ~/.bashrc
+echo "  LD_LIBRARY_PATH=/usr/local/cuda/lib64:/usr/local/cuda/lib" >> ~/.bashrc
+echo "else" >> ~/.bashrc
+echo "  LD_LIBRARY_PATH=$LD_LIBRARY_PATH:/usr/local/cuda/lib64:/usr/local/cuda/lib" >> ~/.bashrc
+echo "fi" >> ~/.bashrc
+echo "export LD_LIBRARY_PATH" >> ~/.bashrc
+
+
+# check if CUDA was installed propertly
+nvcc -V
+
+#############################################
+# Install cuDNN
+# go to website and download cudnn v7 for CUDA Toolkit 9.0 (cuDNN v7.0.5 Library for Linux)
+# create free nvidia account or login
+# https://developer.nvidia.com/cudnn
+tar -zxvf cudnn-9.0-linux-x64-v7.tgz
+
+# copy libs to /usr/local/cuda folder
+sudo cp -P cuda/include/cudnn.h /usr/local/cuda/include
+sudo cp -P cuda/lib64/libcudnn* /usr/local/cuda/lib64
+sudo chmod a+r /usr/local/cuda/include/cudnn.h /usr/local/cuda/lib64/libcudnn*
+
+
+#############################################
+# Install Tenorflow
+# isntall python 3 and virtual env
+sudo apt install python3-pip
+sudo apt install python3-venv
+
+# create virtual environment for tensorflow
+# for install python dependences locally
+python3 -m venv tfenv
+source tfenv/bin/activate
+
+# Install tensorflow package with gpu support
+(tfenv)$ pip install tensorflow-gpu
+# or CPU version (only if you don't have GPU CUDA)
+(tfenv)$ pip install tensorflow
+
+# check installation, run simple python scipt from console
+$ python
+
+>>> import tensorflow as tf
+>>> tf_session = tf.Session()
+>>> x = tf.constant(1)
+>>> y = tf.constant(1)
+>>> print(tf_session.run(x + y))
+>>> exit()
+
+# if tensorflow throw error like "can't import CUDA library libcublas.so.9.0" is because your installed version of CUDA don't mach with the tensorflow's version (exaple: if you have CUDA 8 library should be libcublas.so.8.0).
+# to solve this you have to reinstall the required version of CUDA and cuDNN (don't need to reinstall tenorflow)
+
+
+#############################################
+# Install Keras
+(tfenv)$ pip install Keras
+
+
+#############################################
+# Check all
+# run with python 'cuda-test.py'
+# run 'source tfenv/bin/activate' if you were out the environment
+(tfenv)$ python cuda-test.py
+
+# to see the GPU specs run in other console
+nvidia-smi
+
+# Common errors:
+# Miss match Tensorflow version with CUDA version
+# Don't find CUDA libs because CUDA weren't added to user's PATH
+# Don't setup the environment or forget to enter with 'source tfenv/bin/activate'
+# Use python2 instead of python3
