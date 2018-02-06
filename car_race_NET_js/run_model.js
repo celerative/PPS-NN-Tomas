@@ -20,6 +20,7 @@ function initModel()
 // y_pred --> Float32Array(output_len)
 function testModel(x_pred, y_pred)
 {
+  var finnish = false
   if (x_pred === undefined) {
           return;
   }
@@ -35,8 +36,9 @@ function testModel(x_pred, y_pred)
                                     .0, .0, .0, .0, .0])
   this.pred_out = new Float32Array([.0, .0, .0, .0, .0])
   //load pred_in with enemies and player
-  //for (var i = 0; i < this.input_len ; i++) {
-  //  this.pred_in[i] =
+  for (var i = 0; i < this.input_len ; i++) {
+    this.pred_in[i] = x_pred[i]
+  }
   const inputData = {
     input: this.pred_in
   }
@@ -47,11 +49,16 @@ function testModel(x_pred, y_pred)
     this.pred_out = new Float32Array(outputData.output)
     console.log(this.pred_out);
     for (var i = 0; i < this.output_len ; i++) {
-    y_pred[i] = this.pred_out[i]
-    return(y_pred)
+      y_pred[i] = this.pred_out[i]
+    }
+    finnish = true
   })
   .catch(err => {
     // handle error
     console.log(err);
   })
+  // force to wait the promise and results
+  while (!finnish) {
+  }
+  return(y_pred)
 }

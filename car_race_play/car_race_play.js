@@ -9,7 +9,6 @@ function object(x, y)
 function racing_car(x, y)
 {
 	this.last_x = -1;
-  this.next_x = -1;
     this.x = x;
     this.y = y;
 }
@@ -41,10 +40,6 @@ var line_distance = null;
 var rect_line_width = null;
 var blink_times = null;
 
-var pred_out = null;
-var model = null
-var pos = 0
-var run_NET = false
 
 function init()
 {
@@ -87,6 +82,7 @@ function init()
 	ctx.translate(100, 0);
 
 	opponent_cars = [];
+	grid = [];
 	for (var i = 0; i<3; i++)
 	{
 		opponent_cars.push(new object((Math.floor(Math.random() * 5))*car_width, -(8+2*Math.floor(Math.random()))));
@@ -103,89 +99,23 @@ function init()
 
 	user_car = new racing_car(2*car_width, 20);
 
-	draw_car(user_car, false, true);
+	draw_car(user_car, false);
 	draw_sideline();
 	draw_grid();
 
-  // initialize NET model
-  // load model
-  this.model = new KerasJS.Model({
-    filepath: 'car_race_model.bin',
-    filesystem: true,
-    gpu: true
-  })
-  this.model.ready()
 }
 
-
-// run NET
-function move_car(flag, pred)
+function move_car(dir)
 {
-  if(pred){
-    pos = 0
-    const inputData = {
-      input: this.grid
-    }
-    this.model
-    .predict(inputData)
-    .then(outputData => {
-      this.pred_out = new Float32Array(outputData.output)
-      console.log(this.pred_out);
-      let max = -1
-      for (var i = 0; i < this.pred_out.length; i++) {
-        if (this.pred_out[i] > max){
-          max = this.pred_out[i]
-          pos = i
-        }
-      }
-      finnish = true
-      // while (user_car.next_x != user_car.x){
-      //   if (user_car.next_x < user_car.x) {
-      //     user_car.x -= car_width
-      //   }else{
-      //     user_car.x += car_width
-      //   }
-      //   is_crashed = check_crash();
-      //   if (is_crashed==true)
-    	// 	{
-    	// 		clearInterval(updated_timer);
-    	// 		blinking();
-    	// 		return;
-    	// 	}
-      // }
-    })
-    .catch(err => {
-      // handle error
-      console.log(err);
-    })
-  }
-  if(!flag) {
-        setTimeout(function() {
-           move_car(true, false);
-        }, 50);
-        return;
-  }
-  user_car.x = pos * car_width;
-  // while (user_car.next_x != user_car.x){
-  //   if (user_car.next_x < user_car.x) {
-  //     user_car.x -= car_width
-  //   }else{
-  //     user_car.x += car_width
-  //   }
-  //   is_crashed = check_crash();
-  //   if (is_crashed==true)
-  // 	{
-  // 		//clearInterval(updated_timer);
-  // 		blinking();
-  // 		return;
-  // 	}
-  // }
+	if (is_not_finished == true)
+	{
+		user_car.x += dir*car_width;
+	}
 }
 
 function get_speed()
 {
-	// return (speed_default - speed_delta*cur_level)
-  return (200)
+	return (speed_default - speed_delta*cur_level)
 }
 
 
@@ -199,21 +129,18 @@ function draw_score()
 }
 
 
-function draw_car(obj, is_broken, is_user)
+function draw_car(obj, is_broken)
 {
 
 	ctx.save();
 	ctx.translate(obj.x*block_size,obj.y*block_size);
-	if (is_user == true)
+	if (is_broken == false)
 	{
-    ctx.fillStyle = "#5c9618";
-    if (is_broken == true){
-		  ctx.fillStyle = "#304a12";
-    }
+		ctx.fillStyle = "#020202";
 	}
 	else
 	{
-		ctx.fillStyle = "#020202";
+		ctx.fillStyle = "#202020";
 	}
     ctx.fillRect(0, block_size, 3*block_size, block_size);
 	ctx.fillRect(block_size, 0, block_size, 3*block_size);
@@ -308,13 +235,30 @@ function move_opponent_cars()
 			opponent_cars[car_id].x = (Math.floor(Math.random() * 5))*car_width;
 			opponent_cars[car_id].y += (-8*car_height+1);
 		}
+
+	}
+	for (var car_id = 0; car_id < 6; car_id++)
+	{
+		if (opponent_cars[car_id].y % 4 == 0)
+		{
+			var aux=[]
+			for (var id = 0; id < 6; id++)
+			{
+				if (opponent_cars[id].y >= 0)
+				{
+					aux.push(new object(opponent_cars[id].x, opponent_cars[id].y))
+				}
+			}
+			grid.push(aux);
+			break
+		}
 	}
 
 	level_up = Math.floor(cur_score/10);
 
 	if (level_up>cur_level)
 	{
-			//clearInterval(updated_timer);
+			clearInterval(updated_timer);
 			cur_level = level_up;
 			updated_speed = get_speed();
 			if (updated_speed == 0)
@@ -322,7 +266,7 @@ function move_opponent_cars()
 				game_over();
 				return;
 			}
-			//updated_timer = setInterval(game_process, updated_speed);
+			updated_timer = setInterval(game_process, updated_speed);
 
 	}
 
@@ -358,28 +302,9 @@ function move_opponent_cars()
 		}
 
 	}
-  // create input for NET
-  grid = new Float32Array([ .0, .0, .0, .0, .0,
-                            .0, .0, .0, .0, .0,
-                            .0, .0, .0, .0, .0,
-                            .0, .0, .0, .0, .0,
-                            .0, .0, .0, .0, .0,
-                            .0, .0, .0, .0, .0])
-  // locate user_car on grid
-  grid[25 + Math.floor(user_car.x / car_width)] = .5
-	for (var car_id = 0; car_id < 6; car_id++)
-	{
-    if (opponent_cars[car_id].y % 4 == 0){
-      run_NET = true
-    }else{
-      break
-    }
-		if (opponent_cars[car_id].y >= 0 && opponent_cars[car_id].y < 24)
-		{
-			grid[Math.floor((opponent_cars[car_id].y) / car_height) * 5 + Math.floor(opponent_cars[car_id].x / car_width)] = 1
-		}
-	}
+
 }
+
 
 
 function shuffle_needed()
@@ -396,10 +321,13 @@ function shuffle_needed()
 			if ((opponent_cars[car_id_2nd].y == opponent_cars[car_id].y)&&
 			(Math.abs(opponent_cars[car_id_2nd].x - opponent_cars[car_id].x)<= car_width))
 				return true;
+
 		}
 	}
 	return false;
+
 }
+
 
 
 function check_crash()
@@ -423,9 +351,12 @@ function check_crash()
 					crash_car_id = car_id;
 					user_car.x = opponent_cars[crash_car_id].x;
 				}
+
 			}
+
 		}
 	}
+
 	return (!is_not_finished);
 }
 
@@ -449,16 +380,28 @@ function game_over()
 	ctx.fillText("SCORES", 8*block_size, 12*block_size);
 	ctx.font = 1.25*block_size + "px Georgia";
 	ctx.fillText(""+ cur_score, 10*block_size, 14*block_size);
+
 }
+
+
+function downloadObjectAsJson(exportObj, exportName){
+    var dataStr = "data:text/json;charset=utf-8," + encodeURIComponent(JSON.stringify(exportObj));
+    var downloadAnchorNode = document.createElement('a');
+    downloadAnchorNode.setAttribute("href",     dataStr);
+    downloadAnchorNode.setAttribute("download", exportName + ".json");
+    downloadAnchorNode.click();
+    downloadAnchorNode.remove();
+  }
 
 
 function blinking()
 {
+
 	ctx.clearRect(-100, 0, cvs_width, cvs_height);
 
 	for (var car_id = 0; car_id < 6; car_id++)
 	{
-		draw_car(opponent_cars[car_id], false,true);
+		draw_car(opponent_cars[car_id], false);
 	}
 
 	draw_score();
@@ -466,7 +409,7 @@ function blinking()
 	draw_grid();
 
 	if ((blink_times % 2)==0){
-		draw_car(user_car, true, true);
+		draw_car(user_car, true);
 	}
 
 	if (blink_times > 4)
@@ -478,6 +421,7 @@ function blinking()
 		setTimeout(function(){blinking();}, 500);
 		blink_times ++;
 	}
+
 }
 
 
@@ -487,12 +431,13 @@ function update_scene()
 	{
 		ctx.clearRect(-100, 0, cvs_width, cvs_height);
 
+
 		for (var car_id = 0; car_id < 6; car_id++)
 		{
-			draw_car(opponent_cars[car_id],false, false);
+			draw_car(opponent_cars[car_id],false);
 		}
 
-		draw_car(user_car,false, true);
+		draw_car(user_car,false);
 		draw_score();
 		draw_sideline();
 		draw_grid();
@@ -501,38 +446,34 @@ function update_scene()
 	}
 }
 
-// TODO
-// document.onkeydown = function(e) {
-//     switch (e.keyCode) {
-//         case 37:
-//             //alert('left');
-// 						move_car(-1);
-//             break;
-//         case 39:
-//             //alert('right');
-// 						move_car(1);
-//             break;
-//     }
-// }
+document.onkeydown = function(e) {
+    switch (e.keyCode) {
+        case 37:
+            //alert('left');
+						move_car(-1);
+            break;
+        case 39:
+            //alert('right');
+						move_car(1);
+            break;
+    }
+}
+
 
 function game_process()
 {
+
 		is_crashed = check_crash();
 
 		if (is_crashed==true)
 		{
-			//clearInterval(updated_timer);
+			clearInterval(updated_timer);
 			blinking();
 
 			return;
 		}
 
 		move_opponent_cars();
-    if (run_NET) {
-      console.log(grid)
-      move_car(false, true);
-      run_NET = false
-    }
 		update_scene();
 		loop();
 }
@@ -541,10 +482,11 @@ function loop()
 {
 	if (is_crashed==true)
 	{
+		downloadObjectAsJson(grid, "data")
 		init()
 	}
 
-	setTimeout(function(){game_process();}, 300);
+	setTimeout(function(){game_process();}, 500);
 	if (is_crashed==true)
 	{
 		return;
