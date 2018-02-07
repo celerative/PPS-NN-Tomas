@@ -138,21 +138,6 @@ function move_car(flag, pred)
           pos = i
         }
       }
-      finnish = true
-      // while (user_car.next_x != user_car.x){
-      //   if (user_car.next_x < user_car.x) {
-      //     user_car.x -= car_width
-      //   }else{
-      //     user_car.x += car_width
-      //   }
-      //   is_crashed = check_crash();
-      //   if (is_crashed==true)
-    	// 	{
-    	// 		clearInterval(updated_timer);
-    	// 		blinking();
-    	// 		return;
-    	// 	}
-      // }
     })
     .catch(err => {
       // handle error
@@ -165,21 +150,23 @@ function move_car(flag, pred)
         }, 50);
         return;
   }
-  user_car.x = pos * car_width;
-  // while (user_car.next_x != user_car.x){
-  //   if (user_car.next_x < user_car.x) {
-  //     user_car.x -= car_width
-  //   }else{
-  //     user_car.x += car_width
-  //   }
-  //   is_crashed = check_crash();
-  //   if (is_crashed==true)
-  // 	{
-  // 		//clearInterval(updated_timer);
-  // 		blinking();
-  // 		return;
-  // 	}
-  // }
+  user_car.next_x = pos * car_width;
+  while (user_car.next_x != user_car.x){
+    if (user_car.next_x < user_car.x) {
+      user_car.x -= car_width
+      draw_car(user_car, true, true);
+    }else{
+      user_car.x += car_width
+      draw_car(user_car, true, true);
+    }
+    is_crashed = check_crash();
+    if (is_crashed==true)
+  	{
+  		//clearInterval(updated_timer);
+  		blinking();
+  		return;
+  	}
+  }
 }
 
 function get_speed()
@@ -191,11 +178,7 @@ function get_speed()
 
 function draw_score()
 {
-	ctx.font = 1.5*block_size+"px Georgia";
-	ctx.fillText("SCORES",18*block_size,10*block_size);
-	ctx.font = 1.25*block_size+"px Georgia";
-	ctx.fillText(""+ cur_score,20*block_size,12*block_size);
-
+	$("#controls").text("SCORE: " + cur_score)
 }
 
 
@@ -215,10 +198,10 @@ function draw_car(obj, is_broken, is_user)
 	{
 		ctx.fillStyle = "#020202";
 	}
-    ctx.fillRect(0, block_size, 3*block_size, block_size);
-	ctx.fillRect(block_size, 0, block_size, 3*block_size);
-    ctx.fillRect(0, 3*block_size, block_size, block_size);
-    ctx.fillRect(2*block_size, 3*block_size, block_size, block_size);
+  ctx.fillRect(0, block_size, 3*block_size, block_size);
+  ctx.fillRect(block_size, 0, block_size, 3*block_size);
+  ctx.fillRect(0, 3*block_size, block_size, block_size);
+  ctx.fillRect(2*block_size, 3*block_size, block_size, block_size);
 
 	draw_rectangle(1,0);
 	draw_rectangle(1,1);
@@ -308,22 +291,6 @@ function move_opponent_cars()
 			opponent_cars[car_id].x = (Math.floor(Math.random() * 5))*car_width;
 			opponent_cars[car_id].y += (-8*car_height+1);
 		}
-	}
-
-	level_up = Math.floor(cur_score/10);
-
-	if (level_up>cur_level)
-	{
-			//clearInterval(updated_timer);
-			cur_level = level_up;
-			updated_speed = get_speed();
-			if (updated_speed == 0)
-			{
-				game_over();
-				return;
-			}
-			//updated_timer = setInterval(game_process, updated_speed);
-
 	}
 
 	while (shuffle_needed())
@@ -432,23 +399,7 @@ function check_crash()
 
 function game_over()
 {
-	ctx.clearRect(-100, 0, cvs_width, cvs_height);
-
-	ctx.font = 2*block_size+ "px Georgia";
-
-	if (is_crashed == true)
-	{
-		ctx.fillText("GAME OVER", 5*block_size, 10*block_size);
-	}
-	else
-	{
-		ctx.fillText("CONGRATULATION", 2*block_size, 10*block_size);
-	}
-
-	ctx.font = 1.5*block_size + "px Georgia";
-	ctx.fillText("SCORES", 8*block_size, 12*block_size);
-	ctx.font = 1.25*block_size + "px Georgia";
-	ctx.fillText(""+ cur_score, 10*block_size, 14*block_size);
+	$("#controls").html("GAME OVER<br>SCORE: " + cur_score + '<br><button id="bt_start" type="button" onclick="loop();">START</button>')
 }
 
 
@@ -458,7 +409,7 @@ function blinking()
 
 	for (var car_id = 0; car_id < 6; car_id++)
 	{
-		draw_car(opponent_cars[car_id], false,true);
+		draw_car(opponent_cars[car_id], false,false);
 	}
 
 	draw_score();
@@ -471,6 +422,7 @@ function blinking()
 
 	if (blink_times > 4)
 	{
+    draw_car(user_car, true, false);
 		game_over();
 	}
 	else
@@ -501,19 +453,6 @@ function update_scene()
 	}
 }
 
-// TODO
-// document.onkeydown = function(e) {
-//     switch (e.keyCode) {
-//         case 37:
-//             //alert('left');
-// 						move_car(-1);
-//             break;
-//         case 39:
-//             //alert('right');
-// 						move_car(1);
-//             break;
-//     }
-// }
 
 function game_process()
 {
