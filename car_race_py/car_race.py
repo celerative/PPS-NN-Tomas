@@ -4,6 +4,8 @@ import numpy as np
 pg.init()
 screen = pg.display.set_mode((500, 500))
 done = False
+game_refresh = True
+ui_refresh = True
 
 # game vars
 game_cols = 21
@@ -16,11 +18,16 @@ car_width = 3
 car_height = 4
 walls_state = 0  # 0, 1 or 2
 opponents_number = 6
+opponents = []
 
 # game colors
 game_color_bg = (255, 255, 255)  # "#FFFFFF"
 game_color_line = (221, 221, 221)  # "#DDDDDD"
 game_color_wall = (85, 85, 85)  # "#555555"
+game_color_opponent = (0, 0, 0)  # "#000000"
+game_color_player = (92, 150, 24)  # "#5c9618"
+
+# ui vars
 
 # timing
 clock = pg.time.Clock()
@@ -28,6 +35,12 @@ FPS = 60
 
 
 class Position:
+    def __init__(self, x, y):
+        self.x = x
+        self.y = y
+
+
+class Player:
     def __init__(self, x, y):
         self.x = x
         self.y = y
@@ -57,10 +70,8 @@ def draw_car(x, y, car_color):
     draw_rect(x + 2, y + 3, car_color)
 
 
-def draw_walls(move):
+def draw_walls():
     global walls_state
-    if (move):
-        walls_state = (walls_state + 1) % 3
     state = walls_state
     for i in range(game_rows):
         if state < 2:
@@ -72,28 +83,47 @@ def draw_walls(move):
 def init_game():
     pg.draw.rect(screen, game_color_bg, pg.Rect(0, 0, game_W, game_H))
     draw_grid()
-    draw_walls(False)
-    # draw_car()
+    draw_walls()
+    # player
+    player = Player(20, 6)
+    draw_car(player.x, player.y, game_color_player)
+    # opponents
+    global opponents
+    opponents = []
+    for i in range(opponents_number):
+        opponents.append(Position(np.random.randint(5) * car_width, -4 * np.random.randint(i + 1)))
 
 
-def init_ui():
+def update_game():
+    # walls
+    global walls_state
+    walls_state = (walls_state + 1) % 3
     pass
 
 
 def draw_game():
     pg.draw.rect(screen, game_color_bg, pg.Rect(0, 0, game_W, game_H))
     draw_grid()
-    draw_walls(True)
+    draw_walls()
+    # player
+    draw_car(player.x, player.y, game_color_player)
     # opponents
     global opponents
-    opponents = []
-    for i in range(3):
-        opponents.append(Position(np.random.randint(5) * car_width, -8))
-        opponents.append(Position(np.random.randint(5) * car_width, -24))
+    for op in opponents:
+        if op.x >= 0:
+            draw_car(op.x, op.y, game_color_opponent)
 
 
-# 0 - 3 - 6 - 9 - 12
-# 0 - 4 - 8 - 12 - 16 - 20
+# y --> 0 - 3 - 6 - 9 - 12
+# x --> 0 - 4 - 8 - 12 - 16 - 20
+
+
+def init_ui():
+    pass
+
+
+def update_ui():
+    pass
 
 
 def draw_ui():
@@ -110,7 +140,10 @@ while not done:
             done = True
         elif event.type == pg.KEYDOWN and event.key == pg.K_ESCAPE:
             done = True
-
+    if game_refresh:
+        update_game()
+    if ui_refresh:
+        update_ui()
     draw_game()
     draw_ui()
     pg.display.flip()
