@@ -54,12 +54,15 @@ game_color_player_ = (48, 74, 18)  # "#304a12"
 # game states
 game_state_multi_steps = False
 game_state_score = 0
+game_state_crashed = False
+game_state_running = False
 
 # ui vars
 
 # timing
 clock = pg.time.Clock()
 FPS = 10
+busy = 0
 
 
 class Position:
@@ -131,6 +134,7 @@ def move_player():
     elif True:
         pass
     player.last_x = player.x
+    global game_state_crashed
     if game_state_multi_steps:
         while player.next_x != player.x:
             if player.next_x < player.x:
@@ -139,22 +143,34 @@ def move_player():
             else:
                 player.x += car_width
                 draw_car(player.x, player.x, game_color_player_)
-            # TODO is_crashed = check_crash()
+            game_state_crashed = check_crash()
     else:
         player.x = player.next_x
+        game_state_crashed = check_crash()
 
 
 def check_crash():
-    crash_car_id = None
     global opponents
     global player
     for op in opponents:
-        if op.y > (player.y - car_height) and op.y < (player.y + car_height - 1):
-            pass
+        if np.absolute(op.x - player.x) < car_width and np.absolute(op.y - player.y) < car_height:
+            return True
+    return False
 
 
 def shuffle_needed():
-    pass
+    global opponents
+    # for i in range(len(opponents) - 1):
+    #     for j in range(i + 1, len(opponents)):
+    #         if opponents[j].x == opponents[i].x and np.absolute(opponents[j].y - opponents[i].y) < 2 * car_height:
+    #             return True
+    #         if opponents[j].y == opponents[i].y and np.absolute(opponents[j].x - opponents[i].x) <= car_width:
+    #             return True
+    ###
+    # recorrer ambas diagonales crecientes y hacer brack si hay un espacio
+    for op1 in opponents:
+        pass
+    return False
 
 
 def move_opponents():
@@ -167,7 +183,21 @@ def move_opponents():
             game_state_score += 1
             op.x = np.random.randint(5) * car_width
             op.y -= car_height * 8 - 1
+    global busy
     while shuffle_needed():
+        # for i in range(len(opponents) - 1):
+        #     for j in range(i + 1, len(opponents)):
+        #         while opponents[j].y == opponents[i].y and np.absolute(opponents[j].x - opponents[i].x) <= car_width:
+        #             busy += 1
+        #             if np.random.random() > 0.5:
+        #                 opponents[j].x = np.random.randint(5) * car_width
+        #             else:
+        #                 opponents[j].y -= car_height
+        #         while opponents[j].x == opponents[i].x and np.absolute(opponents[j].y - opponents[i].y) < 2 * car_height:
+        #             busy += 1
+        #             opponents[j].y -= 2
+        ###
+        # hacer algo con las diagonales crecientes
         pass
 
 
@@ -183,21 +213,29 @@ def init_game():
     global opponents
     opponents = []
     for i in range(opponents_number):
-        # opponents.append(Position(np.random.randint(5) * car_width, -car_height * np.random.randint(1, i + 2)))
-        opponents.append(Position(np.random.randint(5) * car_width, -car_height * i))
-    # TODO set game_state_vars
+        opponents.append(Position(np.random.randint(5) * car_width, -car_height * np.random.randint(1, i + 2)))
+        # opponents.append(Position(np.random.randint(5) * car_width, -car_height * i))
+    # game_state_vars
     global game_state_score
     game_state_score = 0
+    global game_state_crashed
+    game_state_crashed = False
+    global busy
+    busy = 0
 
 
 def update_game():
-    # walls
-    global walls_state
-    walls_state = (walls_state + 1) % 3
-    # player
-    move_player()
-    # opponents
-    move_opponents()
+    global game_state_crashed
+    if not game_state_crashed:
+        # walls
+        global walls_state
+        walls_state = (walls_state + 1) % 3
+        # opponents
+        move_opponents()
+        # player
+        move_player()
+    global busy
+    print("\r{}".format(busy), end="")
 
 
 def draw_game():
