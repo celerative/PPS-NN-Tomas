@@ -1,5 +1,6 @@
 import pygame as pg
 import numpy as np
+from math import floor
 
 pg.init()
 screen = pg.display.set_mode((500, 500))
@@ -29,6 +30,9 @@ y20 |   |   |   |   |   |
     ---------------------
 '''
 
+# data
+grid = None
+
 # game vars
 game_cols = 21
 game_rows = 24
@@ -56,6 +60,7 @@ game_state_multi_steps = False
 game_state_score = 0
 game_state_crashed = False
 game_state_running = False
+game_state_passing_hole = True
 
 # ui vars
 
@@ -147,6 +152,8 @@ def move_player():
     else:
         player.x = player.next_x
         game_state_crashed = check_crash()
+    global grid
+    grid[0][floor(player.y / car_height) * 5 + floor(player.x / car_width)] = .5
 
 
 def check_crash():
@@ -160,20 +167,45 @@ def check_crash():
 
 def shuffle_needed():
     global opponents
-    # for i in range(len(opponents) - 1):
-    #     for j in range(i + 1, len(opponents)):
-    #         if opponents[j].x == opponents[i].x and np.absolute(opponents[j].y - opponents[i].y) < 2 * car_height:
-    #             return True
-    #         if opponents[j].y == opponents[i].y and np.absolute(opponents[j].x - opponents[i].x) <= car_width:
-    #             return True
+    for i in range(len(opponents) - 1):
+        for j in range(i + 1, len(opponents)):
+            if opponents[j].x == opponents[i].x and np.absolute(opponents[j].y - opponents[i].y) < 2 * car_height:
+                return True
+            if opponents[j].y == opponents[i].y and np.absolute(opponents[j].x - opponents[i].x) <= car_width:
+                return True
     ###
-    # recorrer ambas diagonales crecientes y hacer brack si hay un espacio
-    for op1 in opponents:
-        pass
+    # check for holes in creasent diagonals (right and left diags) for each opponent
+    global game_state_passing_hole
+    game_state_passing_hole = True
+    for op in opponents:
+        passing_hole = False
+        for r in range(floor(op.x / car_width) + 1, 5):  # serach until right wall
+            hole = True
+            for aux_op in opponents:
+                if aux_op.x == op.x + r * car_width and aux_op == op.y - r * car_height:
+                    hole = False
+                    break
+            if hole:
+                passing_hole = True
+                break
+        for l in range(floor(op.x / car_width) - 1, -1):  # serach until left wall
+            hole = True
+            for aux_op in opponents:
+                if aux_op.x == op.x - l * car_width and aux_op == op.y - l * car_height:
+                    hole = False
+                    break
+            if hole:
+                passing_hole = True
+                break
+        if not passing_hole:
+            print("not hole found")
+            game_state_passing_hole = False
+            return True
     return False
 
 
 def move_opponents():
+    global grid
     global opponents
     for op in opponents:
         if op.y < game_rows:
@@ -185,36 +217,50 @@ def move_opponents():
             op.y -= car_height * 8 - 1
     global busy
     while shuffle_needed():
-        # for i in range(len(opponents) - 1):
-        #     for j in range(i + 1, len(opponents)):
-        #         while opponents[j].y == opponents[i].y and np.absolute(opponents[j].x - opponents[i].x) <= car_width:
-        #             busy += 1
-        #             if np.random.random() > 0.5:
-        #                 opponents[j].x = np.random.randint(5) * car_width
-        #             else:
-        #                 opponents[j].y -= car_height
-        #         while opponents[j].x == opponents[i].x and np.absolute(opponents[j].y - opponents[i].y) < 2 * car_height:
-        #             busy += 1
-        #             opponents[j].y -= 2
+        for i in range(len(opponents) - 1):
+            for j in range(i + 1, len(opponents)):
+                while opponents[j].y == opponents[i].y and np.absolute(opponents[j].x - opponents[i].x) <= car_width:
+                    busy += 1
+                    if np.random.random() > 0.5:
+                        opponents[j].x = np.random.randint(5) * car_width
+                    else:
+                        opponents[j].y -= car_height
+                while opponents[j].x == opponents[i].x and np.absolute(opponents[j].y - opponents[i].y) < 2 * car_height:
+                    busy += 1
+                    opponents[j].y -= 2
         ###
-        # hacer algo con las diagonales crecientes
-        pass
+        global game_state_passing_hole
+        if not game_state_passing_hole:
+            opponents[np.random.randint(len(opponents))].y -= car_height
+            game_state_passing_hole = True
+    for op in opponents:
+        if op.y >= 0 and op.y > game_rows:
+            grid[0][floor(op.y / car_height) * 5 + floor(op.x / car_width)] = 1
 
 
 def init_game():
     pg.draw.rect(screen, game_color_bg, pg.Rect(0, 0, game_W, game_H))
     draw_grid()
     draw_walls()
+    # data
+    global grid
+    grid = np.zeros(shape=(1, 30), dtype=float)
     # player
     global player
     player = Player(2 * car_width, 5 * car_height)
     draw_car(player.x, player.y, game_color_player)
+    grid[0][floor(player.y / car_height) * 5 + floor(player.x / car_width)] = .5
     # opponents
     global opponents
     opponents = []
-    for i in range(opponents_number):
-        opponents.append(Position(np.random.randint(5) * car_width, -car_height * np.random.randint(1, i + 2)))
-        # opponents.append(Position(np.random.randint(5) * car_width, -car_height * i))
+    # for i in range(opponents_number):
+    #     opponents.append(Position(np.random.randint(5) * car_width, -car_height * np.random.randint(1, i + 2)))
+    opponents.append(Position(0 * car_width, -car_height * 1))
+    opponents.append(Position(1 * car_width, -car_height * 2))
+    opponents.append(Position(2 * car_width, -car_height * 3))
+    opponents.append(Position(3 * car_width, -car_height * 4))
+    opponents.append(Position(4 * car_width, -car_height * 5))
+    opponents.append(Position(3 * car_width, -car_height * 8))
     # game_state_vars
     global game_state_score
     game_state_score = 0
@@ -227,6 +273,9 @@ def init_game():
 def update_game():
     global game_state_crashed
     if not game_state_crashed:
+        # data
+        global grid
+        grid = np.zeros(shape=(1, 30), dtype=float)
         # walls
         global walls_state
         walls_state = (walls_state + 1) % 3
