@@ -1,6 +1,6 @@
 import pygame as pg
 import numpy as np
-from math import floor
+import Buttons
 
 pg.init()
 screen = pg.display.set_mode((500, 500))
@@ -63,6 +63,7 @@ game_state_running = False
 game_state_passing_hole = True
 
 # ui vars
+playButton = None
 
 # timing
 clock = pg.time.Clock()
@@ -153,7 +154,7 @@ def move_player():
         player.x = player.next_x
         game_state_crashed = check_crash()
     global grid
-    grid[0][floor(player.y / car_height) * 5 + floor(player.x / car_width)] = .5
+    grid[0][player.y // car_height * 5 + player.x // car_width] = .5
 
 
 def check_crash():
@@ -175,37 +176,40 @@ def shuffle_needed():
                 return True
     ###
     # check for holes in creasent diagonals (right and left diags) for each opponent
-    global game_state_passing_hole
-    game_state_passing_hole = True
-    for op in opponents:
-        passing_hole = False
-        for r in range(floor(op.x / car_width) + 1, 5):  # serach until right wall
-            hole = True
-            for aux_op in opponents:
-                if aux_op.x == op.x + r * car_width and aux_op == op.y - r * car_height:
-                    hole = False
-                    break
-            if hole:
-                passing_hole = True
-                break
-        for l in range(floor(op.x / car_width) - 1, -1):  # serach until left wall
-            hole = True
-            for aux_op in opponents:
-                if aux_op.x == op.x - l * car_width and aux_op == op.y - l * car_height:
-                    hole = False
-                    break
-            if hole:
-                passing_hole = True
-                break
-        if not passing_hole:
-            print("not hole found")
-            game_state_passing_hole = False
-            return True
+    # global game_state_passing_hole
+    # game_state_passing_hole = True
+    # for op in opponents:
+    #     passing_hole = False
+    #     for r in range(op.x // car_width + 1, 5):  # search until right wall
+    #         hole = True
+    #         for aux_op in opponents:
+    #             if aux_op.x == op.x + r * car_width and aux_op.y == op.y - r * car_height:
+    #                 hole = False
+    #                 break
+    #         if hole:
+    #             passing_hole = True
+    #             break
+    #     if passing_hole:
+    #         break
+    #     for l in range(1, op.x // car_width + 1):  # search until left wall
+    #         hole = True
+    #         for aux_op in opponents:
+    #             if aux_op.x == op.x - l * car_width and aux_op.y == op.y - l * car_height:
+    #                 hole = False
+    #                 break
+    #         if hole:
+    #             passing_hole = True
+    #             break
+    #     if not passing_hole:
+    #         print("not hole found")
+    #         for o in opponents:
+    #             print(o.x, o.y)
+    #         game_state_passing_hole = False
+    #         return True
     return False
 
 
 def move_opponents():
-    global grid
     global opponents
     for op in opponents:
         if op.y < game_rows:
@@ -216,7 +220,14 @@ def move_opponents():
             op.x = np.random.randint(5) * car_width
             op.y -= car_height * 8 - 1
     global busy
+    deadlock = 0
     while shuffle_needed():
+        if deadlock > 10:
+            global player
+            print(player.x, player.y)
+            while True:
+                pass
+        deadlock += 1
         for i in range(len(opponents) - 1):
             for j in range(i + 1, len(opponents)):
                 while opponents[j].y == opponents[i].y and np.absolute(opponents[j].x - opponents[i].x) <= car_width:
@@ -227,15 +238,20 @@ def move_opponents():
                         opponents[j].y -= car_height
                 while opponents[j].x == opponents[i].x and np.absolute(opponents[j].y - opponents[i].y) < 2 * car_height:
                     busy += 1
-                    opponents[j].y -= 2
+                    opponents[j].y -= car_height
         ###
-        global game_state_passing_hole
-        if not game_state_passing_hole:
-            opponents[np.random.randint(len(opponents))].y -= car_height
-            game_state_passing_hole = True
+        # delete diagonal of opponents
+        # global game_state_passing_hole
+        # if not game_state_passing_hole:
+        #     t = np.random.randint(len(opponents))
+        #     while opponents[t].y >= 0:
+        #         t = np.random.randint(len(opponents))
+        #     opponents[t].y -= 3 * car_height
+        #     game_state_passing_hole = True
+    global grid
     for op in opponents:
         if op.y >= 0 and op.y > game_rows:
-            grid[0][floor(op.y / car_height) * 5 + floor(op.x / car_width)] = 1
+            grid[0][op.y // car_height * 5 + op.x // car_width] = 1
 
 
 def init_game():
@@ -249,18 +265,20 @@ def init_game():
     global player
     player = Player(2 * car_width, 5 * car_height)
     draw_car(player.x, player.y, game_color_player)
-    grid[0][floor(player.y / car_height) * 5 + floor(player.x / car_width)] = .5
+    grid[0][player.y // car_height * 5 + player.x // car_width] = .5
     # opponents
     global opponents
     opponents = []
-    # for i in range(opponents_number):
-    #     opponents.append(Position(np.random.randint(5) * car_width, -car_height * np.random.randint(1, i + 2)))
-    opponents.append(Position(0 * car_width, -car_height * 1))
-    opponents.append(Position(1 * car_width, -car_height * 2))
-    opponents.append(Position(2 * car_width, -car_height * 3))
-    opponents.append(Position(3 * car_width, -car_height * 4))
-    opponents.append(Position(4 * car_width, -car_height * 5))
-    opponents.append(Position(3 * car_width, -car_height * 8))
+    for i in range(opponents_number):
+        opponents.append(Position(np.random.randint(4) * car_width, -car_height * np.random.randint(1, i + 2)))
+    ###
+    # insert diagonal of opponents
+    # opponents.append(Position(3 * car_width, -car_height * 2))
+    # opponents.append(Position(4 * car_width, -car_height * 1))
+    # opponents.append(Position(2 * car_width, -car_height * 3))
+    # opponents.append(Position(1 * car_width, -car_height * 4))
+    # opponents.append(Position(0 * car_width, -car_height * 5))
+    # opponents.append(Position(3 * car_width, -car_height * 8))
     # game_state_vars
     global game_state_score
     game_state_score = 0
@@ -272,7 +290,10 @@ def init_game():
 
 def update_game():
     global game_state_crashed
-    if not game_state_crashed:
+    global game_state_running
+    if game_state_crashed:
+        game_state_running = False
+    if not game_state_crashed and game_state_running:
         # data
         global grid
         grid = np.zeros(shape=(1, 30), dtype=float)
@@ -283,8 +304,8 @@ def update_game():
         move_opponents()
         # player
         move_player()
-    global busy
-    print("\r{}".format(busy), end="")
+    # global busy
+    # print("\r{}".format(busy), end="")
 
 
 def draw_game():
@@ -301,8 +322,18 @@ def draw_game():
             draw_car(op.x, op.y, game_color_opponent)
 
 
+def write_text(surface, text, text_color, length, height, x, y):
+    font_size = 2 * int(length // len(text))
+    myFont = pg.font.SysFont("Calibri", font_size)
+    myText = myFont.render(text, 1, text_color)
+    surface.blit(myText, ((x + length / 2) - myText.get_width() / 2, (y + height / 2) - myText.get_height() / 2))
+    return surface
+
+
 def init_ui():
-    pass
+    pg.display.set_caption("Car Race")
+    global playButton
+    playButton = Buttons.Button()
 
 
 def update_ui():
@@ -310,7 +341,14 @@ def update_ui():
 
 
 def draw_ui():
-    pass
+    global playButton
+    global game_state_running
+    if not game_state_running:
+        playButton.create_button(screen, (107, 142, 35), game_W + 10, 30, 145, 50, 0, "Play", (255, 255, 255))
+    else:
+        playButton.create_button(screen, (107, 142, 35), game_W + 10, 30, 145, 50, 0, "Reset", (255, 255, 255))
+    global game_state_score
+    write_text(screen, "Score: " + str(game_state_score), (107, 142, 35), 145, 50, game_W + 10, 100)
 
 
 init_game()
@@ -323,6 +361,10 @@ while not done:
             done = True
         elif event.type == pg.KEYDOWN and event.key == pg.K_ESCAPE:
             done = True
+        elif event.type == pg.MOUSEBUTTONDOWN:
+            if playButton.pressed(pg.mouse.get_pos()):
+                init_game()
+                game_state_running = True
     if game_refresh:
         update_game()
     if ui_refresh:
