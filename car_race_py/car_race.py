@@ -64,10 +64,18 @@ game_state_passing_hole = True
 
 # ui vars
 playButton = None
+speedUpButton = None
+speedDownButton = None
+
+# ui states
+ui_state_playButton = "Play"
+ui_state_speed = 10
 
 # timing
 clock = pg.time.Clock()
-FPS = 10
+FPS = 60
+FPS_default = 60
+freq_count = 0
 busy = 0
 
 
@@ -223,10 +231,10 @@ def move_opponents():
     deadlock = 0
     while shuffle_needed():
         if deadlock > 10:
-            global player
-            print(player.x, player.y)
-            while True:
-                pass
+            print("Deadlock unsolve")
+            global game_state_crashed
+            game_state_crashed = True
+            break
         deadlock += 1
         for i in range(len(opponents) - 1):
             for j in range(i + 1, len(opponents)):
@@ -250,7 +258,7 @@ def move_opponents():
         #     game_state_passing_hole = True
     global grid
     for op in opponents:
-        if op.y >= 0 and op.y > game_rows:
+        if op.y >= 0 and op.y <= game_rows - car_height:
             grid[0][op.y // car_height * 5 + op.x // car_width] = 1
 
 
@@ -284,6 +292,8 @@ def init_game():
     game_state_score = 0
     global game_state_crashed
     game_state_crashed = False
+    global freq_count
+    freq_count = 0
     global busy
     busy = 0
 
@@ -304,6 +314,15 @@ def update_game():
         move_opponents()
         # player
         move_player()
+        # show data
+        print("[{} | {} | {} | {} | {} ]\n"
+              "[{} | {} | {} | {} | {} ]\n"
+              "[{} | {} | {} | {} | {} ]\n"
+              "[{} | {} | {} | {} | {} ]\n"
+              "[{} | {} | {} | {} | {} ]\n"
+              "[{} | {} | {} | {} | {} ]\n"
+              "------------------------------"
+              .format(*grid[0]))
     # global busy
     # print("\r{}".format(busy), end="")
 
@@ -334,21 +353,37 @@ def init_ui():
     pg.display.set_caption("Car Race")
     global playButton
     playButton = Buttons.Button()
+    global speedUpButton
+    speedUpButton = Buttons.Button()
+    global speedDownButton
+    speedDownButton = Buttons.Button()
 
 
 def update_ui():
-    pass
+    global game_state_running
+    global ui_state_playButton
+    if not game_state_running:
+        ui_state_playButton = "Play"
+    else:
+        ui_state_playButton = "Reset"
+    global FPS
+    global ui_state_speed
+    FPS = ui_state_speed
 
 
 def draw_ui():
     global playButton
-    global game_state_running
-    if not game_state_running:
-        playButton.create_button(screen, (107, 142, 35), game_W + 10, 30, 145, 50, 0, "Play", (255, 255, 255))
-    else:
-        playButton.create_button(screen, (107, 142, 35), game_W + 10, 30, 145, 50, 0, "Reset", (255, 255, 255))
+    global ui_state_playButton
+    playButton.create_button(screen, (107, 142, 35), game_W + 10, 30, 145, 50, 0, ui_state_playButton, (255, 255, 255))
     global game_state_score
-    write_text(screen, "Score: " + str(game_state_score), (107, 142, 35), 145, 50, game_W + 10, 100)
+    write_text(screen, "Score: " + str(game_state_score), (107, 142, 35), 145, 40, game_W + 10, 100)
+    global ui_state_speed
+    write_text(screen, "Speed: " + str(ui_state_speed), (107, 142, 35), 145, 40, game_W + 10, 160)
+    global speedDownButton
+    if ui_state_speed > 1:
+        speedDownButton.create_button(screen, (107, 142, 35), game_W + 10, 200, 65, 40, 0, "<", (255, 255, 255))
+    global speedUpButton
+    speedUpButton.create_button(screen, (107, 142, 35), game_W + 90, 200, 65, 40, 0, ">", (255, 255, 255))
 
 
 init_game()
@@ -365,8 +400,28 @@ while not done:
             if playButton.pressed(pg.mouse.get_pos()):
                 init_game()
                 game_state_running = True
+            if speedUpButton.pressed(pg.mouse.get_pos()):
+                ui_state_speed += 1
+            if speedDownButton.pressed(pg.mouse.get_pos()):
+                if ui_state_speed > 1:
+                    ui_state_speed -= 1
+    # stablish frequecies relation (FPS and speed)
+    if ui_state_speed < FPS:
+        FPS = FPS_default
+        freq_count += 1
+        print(freq_count)
+        if ui_state_speed == freq_count % ui_state_speed:
+            game_refresh = True
+        if freq_count >= 60:
+            if ui_state_speed / FPS > .5:
+                game_refresh = True
+            freq_count = 0
+    else:
+        FPS = ui_state_speed
+        game_refresh = True
     if game_refresh:
         update_game()
+        game_refresh = False
     if ui_refresh:
         update_ui()
     draw_game()
