@@ -1,6 +1,7 @@
 import pygame as pg
 import numpy as np
 import Buttons
+import NET_model
 
 pg.init()
 screen = pg.display.set_mode((500, 500))
@@ -32,6 +33,10 @@ y20 |   |   |   |   |   |
 
 # data
 grid = None
+
+# NET
+model = None
+model_path = "model_L.h5"
 
 # game vars
 game_cols = 21
@@ -93,6 +98,12 @@ class Player:
         self.next_x = -1
 
 
+def init_NET_model():
+    global model
+    model = NET_model.create_model()
+    NET_model.load_trained_model(model, model_path)
+
+
 def draw_grid():
     for i in range(game_cols + 1):
         pg.draw.line(screen, game_color_line, (block_size * i, 0), (block_size * i, game_H), grid_line_W)
@@ -132,8 +143,10 @@ def draw_walls():
 def move_player():
     global player
     player.next_x = player.x
+    global game_state_multi_steps
+    global grid
     # keyboard control
-    if True:
+    if False:
         pressed = pg.key.get_pressed()
         if pressed[pg.K_LEFT]:
             if player.x > 0:
@@ -141,11 +154,18 @@ def move_player():
         elif pressed[pg.K_RIGHT]:
             if player.x < 12:
                 player.next_x = player.x + car_width
+        game_state_multi_steps = False
     # trained NET control
     elif True:
-        pass
+        global model
+        print(grid)
+        pred = NET_model.predict(model, grid)
+        print(pred)
+        print(np.argmax(pred[0]))
+        player.next_x = np.argmax(pred[0]) * car_width
+        game_state_multi_steps = True
     # evolutive control
-    elif True:
+    elif False:
         pass
     player.last_x = player.x
     global game_state_crashed
@@ -161,7 +181,6 @@ def move_player():
     else:
         player.x = player.next_x
         game_state_crashed = check_crash()
-    global grid
     grid[0][player.y // car_height * 5 + player.x // car_width] = .5
 
 
@@ -266,6 +285,8 @@ def init_game():
     pg.draw.rect(screen, game_color_bg, pg.Rect(0, 0, game_W, game_H))
     draw_grid()
     draw_walls()
+    # model
+    init_NET_model()
     # data
     global grid
     grid = np.zeros(shape=(1, 30), dtype=float)
@@ -304,9 +325,6 @@ def update_game():
     if game_state_crashed:
         game_state_running = False
     if not game_state_crashed and game_state_running:
-        # data
-        global grid
-        grid = np.zeros(shape=(1, 30), dtype=float)
         # walls
         global walls_state
         walls_state = (walls_state + 1) % 3
@@ -314,6 +332,8 @@ def update_game():
         move_opponents()
         # player
         move_player()
+        # data
+        global grid
         # show data
         print("[{} | {} | {} | {} | {} ]\n"
               "[{} | {} | {} | {} | {} ]\n"
@@ -323,6 +343,8 @@ def update_game():
               "[{} | {} | {} | {} | {} ]\n"
               "------------------------------"
               .format(*grid[0]))
+        # reset data
+        grid = np.zeros(shape=(1, 30), dtype=float)
     # global busy
     # print("\r{}".format(busy), end="")
 
@@ -409,7 +431,6 @@ while not done:
     if ui_state_speed < FPS:
         FPS = FPS_default
         freq_count += 1
-        print(freq_count)
         if ui_state_speed == freq_count % ui_state_speed:
             game_refresh = True
         if freq_count >= 60:
