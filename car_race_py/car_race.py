@@ -29,6 +29,12 @@ y16 |   |   |   |   |   |
     ---------------------
 y20 |   |   |   |   |   |
     ---------------------
+
+Mode 0: Manual game
+Mode 1: Run Trained NET
+Mode 2: Train NET with Reinforce Learning
+Mode 3: Train NET with Evolutive Population
+
 '''
 
 # data
@@ -36,7 +42,8 @@ grid = None
 
 # NET
 model = None
-model_path = "model_L.h5"
+model_path = "NET_model.h5"
+model_pred_enable = False
 
 # game vars
 game_cols = 21
@@ -65,16 +72,19 @@ game_state_multi_steps = False
 game_state_score = 0
 game_state_crashed = False
 game_state_running = False
-game_state_passing_hole = True
 
 # ui vars
 playButton = None
 speedUpButton = None
 speedDownButton = None
+modeUpButton = None
+modeDownButton = None
 
 # ui states
 ui_state_playButton = "Play"
 ui_state_speed = 10
+ui_state_mode = 0
+ui_state_mode_string = ["Manual", "UseNET", "TrainRL", "TrainES"]
 
 # timing
 clock = pg.time.Clock()
@@ -144,9 +154,20 @@ def move_player():
     global player
     player.next_x = player.x
     global game_state_multi_steps
+    global ui_state_mode
     global grid
-    # keyboard control
-    if False:
+    grid[0][player.y // car_height * 5 + player.x // car_width] = .5
+    print(grid)
+    print("[{} | {} | {} | {} | {} ]\n"
+          "[{} | {} | {} | {} | {} ]\n"
+          "[{} | {} | {} | {} | {} ]\n"
+          "[{} | {} | {} | {} | {} ]\n"
+          "[{} | {} | {} | {} | {} ]\n"
+          "[{} | {} | {} | {} | {} ]\n"
+          "------------------------------"
+          .format(*grid[0]))
+    # Mode 0: Manual game
+    if ui_state_mode == 0:
         pressed = pg.key.get_pressed()
         if pressed[pg.K_LEFT]:
             if player.x > 0:
@@ -155,33 +176,47 @@ def move_player():
             if player.x < 12:
                 player.next_x = player.x + car_width
         game_state_multi_steps = False
-    # trained NET control
-    elif True:
-        global model
-        print(grid)
-        pred = NET_model.predict(model, grid)
-        print(pred)
-        print(np.argmax(pred[0]))
-        player.next_x = np.argmax(pred[0]) * car_width
-        game_state_multi_steps = True
-    # evolutive control
-    elif False:
+    # Mode 1: Run Trained NET
+    elif ui_state_mode == 1:
+        if model_pred_enable:
+            global model
+            pred = NET_model.predict(model, grid)
+            print(pred)
+            print(np.argmax(pred[0]))
+            player.next_x = np.argmax(pred[0]) * car_width
+            global model_pred_enable
+            # model_pred_enable = False
+            game_state_multi_steps = True
+    # Mode 2: Train NET with Reinforce Learning
+    elif ui_state_mode == 2:
         pass
+    # Mode 3: Train NET with Evolutive Population
+    elif ui_state_mode == 3:
+        pass
+    grid[0][player.y // car_height * 5 + player.x // car_width] = 0
     player.last_x = player.x
     global game_state_crashed
     if game_state_multi_steps:
         while player.next_x != player.x:
             if player.next_x < player.x:
                 player.x -= car_width
-                draw_car(player.x, player.x, game_color_player_)
+                print("<--")
             else:
                 player.x += car_width
-                draw_car(player.x, player.x, game_color_player_)
+                print("-->")
             game_state_crashed = check_crash()
+            if game_state_crashed:
+                break
     else:
+        if player.next_x < player.x:
+            print("<--")
+        elif player.next_x > player.x:
+            print("-->")
         player.x = player.next_x
         game_state_crashed = check_crash()
+        # print(game_state_crashed)
     grid[0][player.y // car_height * 5 + player.x // car_width] = .5
+    print("##########################################")
 
 
 def check_crash():
@@ -203,36 +238,6 @@ def shuffle_needed():
                 return True
     ###
     # check for holes in creasent diagonals (right and left diags) for each opponent
-    # global game_state_passing_hole
-    # game_state_passing_hole = True
-    # for op in opponents:
-    #     passing_hole = False
-    #     for r in range(op.x // car_width + 1, 5):  # search until right wall
-    #         hole = True
-    #         for aux_op in opponents:
-    #             if aux_op.x == op.x + r * car_width and aux_op.y == op.y - r * car_height:
-    #                 hole = False
-    #                 break
-    #         if hole:
-    #             passing_hole = True
-    #             break
-    #     if passing_hole:
-    #         break
-    #     for l in range(1, op.x // car_width + 1):  # search until left wall
-    #         hole = True
-    #         for aux_op in opponents:
-    #             if aux_op.x == op.x - l * car_width and aux_op.y == op.y - l * car_height:
-    #                 hole = False
-    #                 break
-    #         if hole:
-    #             passing_hole = True
-    #             break
-    #     if not passing_hole:
-    #         print("not hole found")
-    #         for o in opponents:
-    #             print(o.x, o.y)
-    #         game_state_passing_hole = False
-    #         return True
     return False
 
 
@@ -268,16 +273,12 @@ def move_opponents():
                     opponents[j].y -= car_height
         ###
         # delete diagonal of opponents
-        # global game_state_passing_hole
-        # if not game_state_passing_hole:
-        #     t = np.random.randint(len(opponents))
-        #     while opponents[t].y >= 0:
-        #         t = np.random.randint(len(opponents))
-        #     opponents[t].y -= 3 * car_height
-        #     game_state_passing_hole = True
     global grid
     for op in opponents:
-        if op.y >= 0 and op.y <= game_rows - car_height:
+        if op.y >= 0 and op.y < game_rows:
+            if op.y % car_height:
+                global model_pred_enable
+                model_pred_enable = True
             grid[0][op.y // car_height * 5 + op.x // car_width] = 1
 
 
@@ -332,18 +333,8 @@ def update_game():
         move_opponents()
         # player
         move_player()
-        # data
-        global grid
-        # show data
-        print("[{} | {} | {} | {} | {} ]\n"
-              "[{} | {} | {} | {} | {} ]\n"
-              "[{} | {} | {} | {} | {} ]\n"
-              "[{} | {} | {} | {} | {} ]\n"
-              "[{} | {} | {} | {} | {} ]\n"
-              "[{} | {} | {} | {} | {} ]\n"
-              "------------------------------"
-              .format(*grid[0]))
         # reset data
+        global grid
         grid = np.zeros(shape=(1, 30), dtype=float)
     # global busy
     # print("\r{}".format(busy), end="")
@@ -379,6 +370,16 @@ def init_ui():
     speedUpButton = Buttons.Button()
     global speedDownButton
     speedDownButton = Buttons.Button()
+    global modeUpButton
+    modeUpButton = Buttons.Button()
+    global modeDownButton
+    modeDownButton = Buttons.Button()
+    # create buttons
+    playButton.create_button(screen, (107, 142, 35), game_W + 10, 30, 145, 50, 0, ui_state_playButton, (255, 255, 255))
+    speedDownButton.create_button(screen, (107, 142, 35), game_W + 10, 180, 65, 40, 0, "<", (255, 255, 255))
+    speedUpButton.create_button(screen, (107, 142, 35), game_W + 90, 180, 65, 40, 0, ">", (255, 255, 255))
+    modeDownButton.create_button(screen, (107, 142, 35), game_W + 10, 300, 65, 40, 0, "<", (255, 255, 255))
+    modeUpButton.create_button(screen, (107, 142, 35), game_W + 90, 300, 65, 40, 0, ">", (255, 255, 255))
 
 
 def update_ui():
@@ -394,18 +395,33 @@ def update_ui():
 
 
 def draw_ui():
+    # play button
     global playButton
     global ui_state_playButton
     playButton.create_button(screen, (107, 142, 35), game_W + 10, 30, 145, 50, 0, ui_state_playButton, (255, 255, 255))
+    # score
     global game_state_score
     write_text(screen, "Score: " + str(game_state_score), (107, 142, 35), 145, 40, game_W + 10, 100)
+    #speed
     global ui_state_speed
-    write_text(screen, "Speed: " + str(ui_state_speed), (107, 142, 35), 145, 40, game_W + 10, 160)
+    write_text(screen, "Speed: " + str(ui_state_speed), (107, 142, 35), 145, 40, game_W + 10, 140)
     global speedDownButton
     if ui_state_speed > 1:
-        speedDownButton.create_button(screen, (107, 142, 35), game_W + 10, 200, 65, 40, 0, "<", (255, 255, 255))
+        speedDownButton.create_button(screen, (107, 142, 35), game_W + 10, 180, 65, 40, 0, "<", (255, 255, 255))
     global speedUpButton
-    speedUpButton.create_button(screen, (107, 142, 35), game_W + 90, 200, 65, 40, 0, ">", (255, 255, 255))
+    speedUpButton.create_button(screen, (107, 142, 35), game_W + 90, 180, 65, 40, 0, ">", (255, 255, 255))
+    # mode
+    global ui_state_mode
+    write_text(screen, "Mode: ", (107, 142, 35), 120, 30, game_W + 20, 240)
+    global ui_state_mode_string
+    write_text(screen, ui_state_mode_string[ui_state_mode], (107, 142, 35), 80, 10, game_W + 50, 275)
+    if not game_state_running:
+        if ui_state_mode > 0:
+            global modeDownButton
+            modeDownButton.create_button(screen, (107, 142, 35), game_W + 10, 300, 65, 40, 0, "<", (255, 255, 255))
+        if ui_state_mode < 3:
+            global modeUpButton
+            modeUpButton.create_button(screen, (107, 142, 35), game_W + 90, 300, 65, 40, 0, ">", (255, 255, 255))
 
 
 init_game()
@@ -427,13 +443,20 @@ while not done:
             if speedDownButton.pressed(pg.mouse.get_pos()):
                 if ui_state_speed > 1:
                     ui_state_speed -= 1
+            if not game_state_running:
+                if modeUpButton.pressed(pg.mouse.get_pos()):
+                    if ui_state_mode < 3:
+                        ui_state_mode += 1
+                if modeDownButton.pressed(pg.mouse.get_pos()):
+                    if ui_state_mode > 0:
+                        ui_state_mode -= 1
     # stablish frequecies relation (FPS and speed)
     if ui_state_speed < FPS:
         FPS = FPS_default
         freq_count += 1
         if ui_state_speed == freq_count % ui_state_speed:
             game_refresh = True
-        if freq_count >= 60:
+        if freq_count >= FPS_default:
             if ui_state_speed / FPS > .5:
                 game_refresh = True
             freq_count = 0

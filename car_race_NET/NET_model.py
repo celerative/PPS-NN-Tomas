@@ -25,3 +25,7 @@ def predict(model, x_predict):
 
 def load_trained_model(model, weights_path):
     model.load_weights(weights_path)
+
+
+def save_model(model, model_path):
+    model.save(model_path)
