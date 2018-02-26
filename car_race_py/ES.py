@@ -59,6 +59,7 @@ def evolve_population():
     for p in _next_population:
         if np.random.random() > 0.5:
             _mutate(p)
+    _population = _next_population
 
 
 def _crossover(indiv1, indiv2, indiv_num):
