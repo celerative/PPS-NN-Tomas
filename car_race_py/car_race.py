@@ -178,14 +178,14 @@ def move_player():
         game_state_multi_steps = False
     # Mode 1: Run Trained NET
     elif ui_state_mode == 1:
+        global model_pred_enable
         if model_pred_enable:
             global model
             pred = NET_model.predict(model, grid)
             print(pred)
             print(np.argmax(pred[0]))
             player.next_x = np.argmax(pred[0]) * car_width
-            global model_pred_enable
-            # model_pred_enable = False
+            model_pred_enable = False
             game_state_multi_steps = True
     # Mode 2: Train NET with Reinforce Learning
     elif ui_state_mode == 2:
