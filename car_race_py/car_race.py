@@ -2,6 +2,7 @@ import pygame as pg
 import numpy as np
 import Buttons
 import NET_model
+import ES
 
 pg.init()
 screen = pg.display.set_mode((500, 500))
@@ -44,6 +45,11 @@ grid = None
 model = None
 model_path = "NET_model.h5"
 model_pred_enable = False
+
+# ES
+ES_population_size = 10
+ES_indiv = None
+ES_is_running = False
 
 # game vars
 game_cols = 21
@@ -91,7 +97,6 @@ clock = pg.time.Clock()
 FPS = 60
 FPS_default = 60
 freq_count = 0
-busy = 0
 
 
 class Position:
@@ -112,6 +117,13 @@ def init_NET_model():
     global model
     model = NET_model.create_model()
     NET_model.load_trained_model(model, model_path)
+
+
+def init_ES():
+    global ES_population_size
+    ES.new_population(ES_population_size, True)
+    global ES_indiv
+    ES_indiv = ES.get_next_indiv()
 
 
 def draw_grid():
@@ -158,14 +170,14 @@ def move_player():
     global grid
     grid[0][player.y // car_height * 5 + player.x // car_width] = .5
     print(grid)
-    print("[{} | {} | {} | {} | {} ]\n"
-          "[{} | {} | {} | {} | {} ]\n"
-          "[{} | {} | {} | {} | {} ]\n"
-          "[{} | {} | {} | {} | {} ]\n"
-          "[{} | {} | {} | {} | {} ]\n"
-          "[{} | {} | {} | {} | {} ]\n"
-          "------------------------------"
-          .format(*grid[0]))
+    # print("[{} | {} | {} | {} | {} ]\n"
+    #       "[{} | {} | {} | {} | {} ]\n"
+    #       "[{} | {} | {} | {} | {} ]\n"
+    #       "[{} | {} | {} | {} | {} ]\n"
+    #       "[{} | {} | {} | {} | {} ]\n"
+    #       "[{} | {} | {} | {} | {} ]\n"
+    #       "------------------------------"
+    #       .format(*grid[0]))
     # Mode 0: Manual game
     if ui_state_mode == 0:
         pressed = pg.key.get_pressed()
@@ -178,43 +190,54 @@ def move_player():
         game_state_multi_steps = False
     # Mode 1: Run Trained NET
     elif ui_state_mode == 1:
-        global model_pred_enable
         if model_pred_enable:
             global model
             pred = NET_model.predict(model, grid)
             print(pred)
             print(np.argmax(pred[0]))
             player.next_x = np.argmax(pred[0]) * car_width
-            model_pred_enable = False
+            global model_pred_enable
+            # model_pred_enable = False  # should work always because positions were normalized
             game_state_multi_steps = True
     # Mode 2: Train NET with Reinforce Learning
     elif ui_state_mode == 2:
         pass
     # Mode 3: Train NET with Evolutive Population
     elif ui_state_mode == 3:
-        pass
+        if model_pred_enable:
+            global ES_indiv
+            pred = NET_model.predict(ES_indiv.model, grid)
+            print(pred)
+            print(np.argmax(pred[0]))
+            player.next_x = np.argmax(pred[0]) * car_width
+            global model_pred_enable
+            # model_pred_enable = False  # should work always because positions were normalized
+            game_state_multi_steps = True
     grid[0][player.y // car_height * 5 + player.x // car_width] = 0
     player.last_x = player.x
     global game_state_crashed
-    if game_state_multi_steps:
-        while player.next_x != player.x:
+    game_state_crashed = check_crash()
+    if not game_state_crashed:
+        if game_state_multi_steps:
+            while player.next_x != player.x:
+                if player.next_x < player.x:
+                    player.x -= car_width
+                    print("<--")
+                else:
+                    player.x += car_width
+                    print("-->")
+                game_state_crashed = check_crash()
+                if game_state_crashed:
+                    break
+        else:
             if player.next_x < player.x:
-                player.x -= car_width
                 print("<--")
-            else:
-                player.x += car_width
+            elif player.next_x > player.x:
                 print("-->")
+            player.x = player.next_x
             game_state_crashed = check_crash()
-            if game_state_crashed:
-                break
-    else:
-        if player.next_x < player.x:
-            print("<--")
-        elif player.next_x > player.x:
-            print("-->")
-        player.x = player.next_x
-        game_state_crashed = check_crash()
-        # print(game_state_crashed)
+    if game_state_crashed:
+        print("craaaaaaaaash")
     grid[0][player.y // car_height * 5 + player.x // car_width] = .5
     print("##########################################")
 
@@ -251,7 +274,7 @@ def move_opponents():
             game_state_score += 1
             op.x = np.random.randint(5) * car_width
             op.y -= car_height * 8 - 1
-    global busy
+
     deadlock = 0
     while shuffle_needed():
         if deadlock > 10:
@@ -263,13 +286,11 @@ def move_opponents():
         for i in range(len(opponents) - 1):
             for j in range(i + 1, len(opponents)):
                 while opponents[j].y == opponents[i].y and np.absolute(opponents[j].x - opponents[i].x) <= car_width:
-                    busy += 1
                     if np.random.random() > 0.5:
                         opponents[j].x = np.random.randint(5) * car_width
                     else:
                         opponents[j].y -= car_height
                 while opponents[j].x == opponents[i].x and np.absolute(opponents[j].y - opponents[i].y) < 2 * car_height:
-                    busy += 1
                     opponents[j].y -= car_height
         ###
         # delete diagonal of opponents
@@ -286,8 +307,25 @@ def init_game():
     pg.draw.rect(screen, game_color_bg, pg.Rect(0, 0, game_W, game_H))
     draw_grid()
     draw_walls()
-    # model
-    init_NET_model()
+    global game_state_score
+    # set mode
+    global ui_state_mode
+    # Mode 1: Run Trained NET
+    if ui_state_mode == 1:
+        init_NET_model()
+    # Mode 2: Train NET with Reinforce Learning
+    elif ui_state_mode == 2:
+        pass
+    # Mode 3: Train NET with Evolutive Population
+    elif ui_state_mode == 3:
+        global ES_is_running
+        if ES_is_running:
+            global ES_indiv
+            ES_indiv.fitness = game_state_score
+            ES_indiv = ES.get_next_indiv()
+        else:
+            ES_is_running = True
+            init_ES()
     # data
     global grid
     grid = np.zeros(shape=(1, 30), dtype=float)
@@ -301,43 +339,35 @@ def init_game():
     opponents = []
     for i in range(opponents_number):
         opponents.append(Position(np.random.randint(4) * car_width, -car_height * np.random.randint(1, i + 2)))
-    ###
-    # insert diagonal of opponents
-    # opponents.append(Position(3 * car_width, -car_height * 2))
-    # opponents.append(Position(4 * car_width, -car_height * 1))
-    # opponents.append(Position(2 * car_width, -car_height * 3))
-    # opponents.append(Position(1 * car_width, -car_height * 4))
-    # opponents.append(Position(0 * car_width, -car_height * 5))
-    # opponents.append(Position(3 * car_width, -car_height * 8))
     # game_state_vars
-    global game_state_score
     game_state_score = 0
     global game_state_crashed
     game_state_crashed = False
     global freq_count
     freq_count = 0
-    global busy
-    busy = 0
 
 
 def update_game():
     global game_state_crashed
     global game_state_running
     if game_state_crashed:
-        game_state_running = False
-    if not game_state_crashed and game_state_running:
-        # walls
-        global walls_state
-        walls_state = (walls_state + 1) % 3
-        # opponents
-        move_opponents()
-        # player
-        move_player()
-        # reset data
-        global grid
-        grid = np.zeros(shape=(1, 30), dtype=float)
-    # global busy
-    # print("\r{}".format(busy), end="")
+        global ui_state_mode
+        if ui_state_mode == 3:
+            init_game()
+        else:
+            game_state_running = False
+    else:
+        if game_state_running:
+            # walls
+            global walls_state
+            walls_state = (walls_state + 1) % 3
+            # opponents
+            move_opponents()
+            # player
+            move_player()
+            # reset data
+            global grid
+            grid = np.zeros(shape=(1, 30), dtype=float)
 
 
 def draw_game():
@@ -422,6 +452,12 @@ def draw_ui():
         if ui_state_mode < 3:
             global modeUpButton
             modeUpButton.create_button(screen, (107, 142, 35), game_W + 90, 300, 65, 40, 0, ">", (255, 255, 255))
+    # ES info
+    global game_state_running
+    if ui_state_mode == 3 and game_state_running:
+        global ES_indiv
+        write_text(screen, "Generation : " + str(ES_indiv.generation), (107, 142, 35), 150, 40, 20, game_H + 10)
+        write_text(screen, "ID" + str(ES_indiv.indiv_id), (107, 142, 35), 30, 20, 20, game_H + 60)
 
 
 init_game()

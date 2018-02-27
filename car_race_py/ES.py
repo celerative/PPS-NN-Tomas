@@ -1,106 +1,159 @@
 import numpy as np
 import NET_model
 
+'''
+ES is a module to create populations of keras directional models.
+Allows to iterate over the population and evolve it when gets to the end.
+
+Works over 1 dim keras leyers, and perform crossover and mutatios on weights and bias from all layers.
+The model is get from NET_model module to abstract it's implamentation.
+
+Every individual is and ES_model instance, and has it's own fitness.
+
+'''
+
 class ES_model:
-    def __init__(self, model, indiv):
+    def __init__(self, model, indiv_id, generation = 1):
         self.fitness = 0
         self.model = model
-        self.generation = 1
-        self.indiv = indiv
+        self.generation = generation
+        self.indiv_id = indiv_id
 
 
 _population = []
 _next_population = []
-indiv_index = 0
+_generation_index = 0
+_indiv_index = 0
 
-def new_population(size=10):
+
+def new_population(size=10, verbose = False):
     global _population
-    for indiv in range(size):
+    global _generation_index
+    _generation_index = 0
+    global _indiv_index
+    _indiv_index = 0
+    for indiv_id in range(size):
         model = NET_model.create_model(random_weights_and_bias = True)
-        _population.append(ES_model(model, indiv))
+        _population.append(ES_model(model, indiv_id))
+    if verbose: print("New generation of {} individuals created".format(len(_population)))
 
 
-def get_next_indiv():
+def get_next_indiv(verbose = False):
     global _population
-    global indiv_index
-    if indiv_index ==  len(_population):
-        evolve_population()
-        indiv_index = 0
-    pop = _population.index(indiv_index)
-    indiv_index += 1
+    global _indiv_index
+    if _indiv_index ==  len(_population):
+        if verbose: print("End of population...")
+        evolve_population(verbose)
+        _indiv_index = 0
+    pop = _population[_indiv_index]
+    if verbose: print("Next individual ID: {}".format(pop.indiv_id))
+    _indiv_index += 1
     return pop
 
 
-def evolve_population():
+def evolve_population(verbose = False):
     global _population
     global _next_population
+    global _generation_index
+    _generation_index += 1
     _next_population = []
-    print("evolving population from generation {} to {}".format(_population[0].generation, _population[0].generation + 1))
+    if verbose: print("Evolving population from generation {}:".format(_population[0].generation))
     _population.sort(key=lambda fit: fit.fitness, reverse=True)
     # selection
     # 30% from original sorted by fitness population
     i = 0
-    for p in range(len(_population) // 3):
-        p.indiv = i
+    for index in range(len(_population) // 3):
+        p = _population[index]
+        if verbose: print("Individual number {} selected, with fit of {}".format(p.indiv_id, p.fitness))
+        p.fitness = 0
+        p.indiv_id = i
+        p.generation = _generation_index
         _next_population.append(p)
         i += 1
     # one randomly selected individual from the 70% less fitness original population
     p = _population[np.random.randint(len(_population) // 3 + 1, len(_population))]
-    p.indiv = i
+    if verbose: print("Individual number {} selected randomly, with fit of {}".format(p.indiv_id, p.fitness))
+    p.fitness = 0
+    p.indiv_id = i
+    p.generation = _generation_index
     _next_population.append(p)
     i += 1
     # crossover
     # fill _next_population with new individuals
+    if verbose: print("Completing population doing crossover...")
     while len(_population) != len(_next_population):
-        p = _crossover(_population[np.random.randint(0, len(_population))], _population[np.random.randint(0, len(_population))], i)
+        p = _crossover(_next_population[np.random.randint(0, len(_next_population))], _next_population[np.random.randint(0, len(_next_population))], i, verbose)
         _next_population.append(p)
         i += 1
     # mutate
+    if verbose: print("Making mutations randomly over the entire population...")
     for p in _next_population:
         if np.random.random() > 0.5:
-            _mutate(p)
+            _mutate(p, verbose)
     _population = _next_population
+    if verbose: print("New population created!")
 
 
-def _crossover(indiv1, indiv2, indiv_num):
+def _crossover(indiv1, indiv2, indiv_num, verbose = False):
+    if verbose: print("Performing crossover with individuals {} and {}:".format(indiv1.indiv_id, indiv2.indiv_id))
+    global _generation_index
     w1 = NET_model.get_weights(indiv1.model)
     w2 = NET_model.get_weights(indiv2.model)
     new_w = NET_model.get_weights(indiv1.model)
     for i in range(0, len(w1), 2):
         # weights
         for j in range(len(w1[i])):
-            for k in range(np.random.randint(len(w1[i][j]))):
+            index = np.random.randint(len(w1[i][j]))
+            if verbose: print("Cuting weights from neuron {} of layer {} to layer {} ({} inputs --> {} outputs) on index {}".format(j, i//2, i//2+1, len(w1[i]), len(w1[i][j]), index))
+            for k in range(index):
                 new_w[i][j][k] = w2[i][j][k]
         # bias
-        for j in range(np.random.randint(len(w1[i+1]))):
+        index = np.random.randint(len(w1[i+1]))
+        if verbose: print("Cuting bias from layer {} of {} neurons on index {}".format(i//2, len(w1[i+1]), index))
+        for j in range(index):
             new_w[i+1][j] = w2[i+1][j]
     m = NET_model.create_model(random_weights_and_bias = True)
     NET_model.set_weights(m, new_w)
-    p = ES_model(m, indiv_num)
+    p = ES_model(m, indiv_num, _generation_index)
     return p
 
 
-def _simple_crossover(indiv1, indiv2, indiv_num):
+def _simple_crossover(indiv1, indiv2, indiv_num, verbose = False):
+    if verbose: print("Performing SIMPLE crossover with individuals {} and {}:".format(indiv1.indiv_id, indiv2.indiv_id))
+    global _generation_index
     if np.random.random() > 0.5:
         new_w = NET_model.get_weights(indiv1.model)
     else:
         new_w = NET_model.get_weights(indiv2.model)
     m = NET_model.create_model(random_weights_and_bias = True)
     NET_model.set_weights(m, new_w)
-    p = ES_model(m, indiv_num)
+    p = ES_model(m, indiv_num, _generation_index)
     return p
 
 
-def _mutate(indiv):
+def _mutate(indiv, verbose = False):
     w = NET_model.get_weights(indiv.model)
+    w_mutated = 0
+    b_mutated = 0
     for i in range(0, len(w), 2):
         # weights
         for j in range(len(w[i])):
             for k in range(len(w[i][j])):
                 if np.random.random() > 0.9:
+                    w_mutated += 1
                     w[i][j][k] += 2 * np.random.random() - 1
         # bias
         for j in range(len(w[i+1])):
             if np.random.random() > 0.9:
+                b_mutated += 1
                 w[i][j][k] += 2 * np.random.random() - 1
     NET_model.set_weights(indiv.model, w)
+    if verbose: print("Mutate randomly {} weights and {} bias on individual {}".format(w_mutated, b_mutated, indiv.indiv_id))
+
+
+def stop_evolving():
+    pass
+
+
+def end_evolving():
+    pass
