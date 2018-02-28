@@ -11,7 +11,7 @@ def create_model(random_weights_and_bias = False):
         _kernel_initializer = 'glorot_uniform'
         _bias_initializer = 'glorot_uniform'
     model.add(Dense(15, activation='relu', kernel_initializer=_kernel_initializer, bias_initializer=_bias_initializer, input_dim=30))
-    # model.add(Dense(10, activation='tanh', kernel_initializer=_kernel_initializer, bias_initializer=_bias_initializer))
+    model.add(Dense(10, activation='tanh', kernel_initializer=_kernel_initializer, bias_initializer=_bias_initializer))
     model.add(Dense(5, activation='softmax', kernel_initializer=_kernel_initializer, bias_initializer=_bias_initializer))
     return model
 

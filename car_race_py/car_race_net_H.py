@@ -224,9 +224,7 @@ if len(data) >= 11000:
     print("Expected results:")
     print("[{} , {} , {} , {} , {} ]"
           .format(*data[x][1]))
-    from keras.utils import plot_model
-    plot_model(model, to_file='model.png', show_shapes=True)
-    NET_model.save_model(model, 'model_H.h5')
+    NET_model.save_model(model, 'NET_model_2.h5')
     data_final = [(10000, x_train), (10000, y_train), (1000, x_test),
                   (1000, y_test), (1, x_predict)]
     save = input("Save training data? [Y/n]: ")

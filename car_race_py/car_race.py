@@ -43,13 +43,16 @@ grid = None
 
 # NET
 model = None
-model_path = "NET_model.h5"
+model_path_1 = "NET_model_1.h5"
+model_path_2 = "NET_model_2.h5"
 model_pred_enable = False
 
 # ES
 ES_population_size = 10
 ES_indiv = None
 ES_is_running = False
+ES_seed = []
+ES_best_score = 0
 
 # game vars
 game_cols = 21
@@ -116,12 +119,23 @@ class Player:
 def init_NET_model():
     global model
     model = NET_model.create_model()
-    NET_model.load_trained_model(model, model_path)
+    NET_model.load_trained_model(model, model_path_1)
 
 
 def init_ES():
     global ES_population_size
-    ES.new_population(ES_population_size, True)
+    global ES_seed
+    model = NET_model.create_model()
+    NET_model.load_trained_model(model, model_path_1)
+    ES_seed.append(ES.ES_model(model, 0))
+
+    model = NET_model.create_model()
+    NET_model.load_trained_model(model, model_path_2)
+    ES_seed.append(ES.ES_model(model, 1))
+
+    ES.new_population(ES_population_size, ES_seed, True)
+    global ES_best_score
+    ES_best_score = 0
     global ES_indiv
     ES_indiv = ES.get_next_indiv()
 
@@ -169,7 +183,7 @@ def move_player():
     global ui_state_mode
     global grid
     grid[0][player.y // car_height * 5 + player.x // car_width] = .5
-    print(grid)
+    # print(grid)
     # print("[{} | {} | {} | {} | {} ]\n"
     #       "[{} | {} | {} | {} | {} ]\n"
     #       "[{} | {} | {} | {} | {} ]\n"
@@ -193,8 +207,8 @@ def move_player():
         if model_pred_enable:
             global model
             pred = NET_model.predict(model, grid)
-            print(pred)
-            print(np.argmax(pred[0]))
+            # print(pred)
+            # print(np.argmax(pred[0]))
             player.next_x = np.argmax(pred[0]) * car_width
             global model_pred_enable
             # model_pred_enable = False  # should work always because positions were normalized
@@ -207,8 +221,8 @@ def move_player():
         if model_pred_enable:
             global ES_indiv
             pred = NET_model.predict(ES_indiv.model, grid)
-            print(pred)
-            print(np.argmax(pred[0]))
+            # print(pred)
+            # print(np.argmax(pred[0]))
             player.next_x = np.argmax(pred[0]) * car_width
             global model_pred_enable
             # model_pred_enable = False  # should work always because positions were normalized
@@ -239,7 +253,7 @@ def move_player():
     if game_state_crashed:
         print("craaaaaaaaash")
     grid[0][player.y // car_height * 5 + player.x // car_width] = .5
-    print("##########################################")
+    print("#-----------------------------------------------------------------#")
 
 
 def check_crash():
@@ -321,6 +335,9 @@ def init_game():
         global ES_is_running
         if ES_is_running:
             global ES_indiv
+            global ES_best_score
+            if game_state_score > ES_best_score:
+                ES_best_score = game_state_score
             ES_indiv.fitness = game_state_score
             ES_indiv = ES.get_next_indiv()
         else:
@@ -418,7 +435,7 @@ def update_ui():
     if not game_state_running:
         ui_state_playButton = "Play"
     else:
-        ui_state_playButton = "Reset"
+        ui_state_playButton = "Stop"
     global FPS
     global ui_state_speed
     FPS = ui_state_speed
@@ -456,8 +473,10 @@ def draw_ui():
     global game_state_running
     if ui_state_mode == 3 and game_state_running:
         global ES_indiv
-        write_text(screen, "Generation : " + str(ES_indiv.generation), (107, 142, 35), 150, 40, 20, game_H + 10)
-        write_text(screen, "ID" + str(ES_indiv.indiv_id), (107, 142, 35), 30, 20, 20, game_H + 60)
+        global ES_best_score
+        write_text(screen, "Gen: " + str(ES_indiv.generation), (107, 142, 35), 60, 20, 20, game_H + 10)
+        write_text(screen, "ID: " + str(ES_indiv.indiv_id), (107, 142, 35), 40, 20, 20, game_H + 30)
+        write_text(screen, "Best score:" + str(ES_best_score), (107, 142, 35), 150, 20, 20, game_H + 50)
 
 
 init_game()
@@ -472,8 +491,11 @@ while not done:
             done = True
         elif event.type == pg.MOUSEBUTTONDOWN:
             if playButton.pressed(pg.mouse.get_pos()):
-                init_game()
-                game_state_running = True
+                if game_state_running:
+                    game_state_running = False
+                else:
+                    init_game()
+                    game_state_running = True
             if speedUpButton.pressed(pg.mouse.get_pos()):
                 ui_state_speed += 1
             if speedDownButton.pressed(pg.mouse.get_pos()):

@@ -26,15 +26,34 @@ _generation_index = 0
 _indiv_index = 0
 
 
-def new_population(size=10, verbose = False):
+def new_population(size=10, seed=None, verbose = False):
+    '''
+        arguments:
+            size: of the population
+            seed: list of ES_model to add and generate population, should have equeal or less individuals than size
+            verbose: show results
+    '''
     global _population
     global _generation_index
     _generation_index = 0
     global _indiv_index
     _indiv_index = 0
-    for indiv_id in range(size):
-        model = NET_model.create_model(random_weights_and_bias = True)
-        _population.append(ES_model(model, indiv_id))
+    if seed is None:
+        for indiv_id in range(size):
+            model = NET_model.create_model(random_weights_and_bias = True)
+            _population.append(ES_model(model, indiv_id))
+    else:
+        i = 0
+        for s in seed:
+            s.fitness = 0
+            s.indiv_id = i
+            s.generation = _generation_index
+            _population.append(s)
+            i += 1
+        while len(_population) != size:
+            p = _simple_crossover(_population[np.random.randint(0, len(_population))], _population[np.random.randint(0, len(_population))], i, verbose)
+            _population.append(p)
+            i += 1
     if verbose: print("New generation of {} individuals created".format(len(_population)))
 
 
@@ -43,7 +62,7 @@ def get_next_indiv(verbose = False):
     global _indiv_index
     if _indiv_index ==  len(_population):
         if verbose: print("End of population...")
-        evolve_population(verbose)
+        evolve_population(verbose = verbose, simple_crossover = False)
         _indiv_index = 0
     pop = _population[_indiv_index]
     if verbose: print("Next individual ID: {}".format(pop.indiv_id))
@@ -51,7 +70,7 @@ def get_next_indiv(verbose = False):
     return pop
 
 
-def evolve_population(verbose = False):
+def evolve_population(verbose = False, simple_crossover = False):
     global _population
     global _next_population
     global _generation_index
@@ -59,10 +78,14 @@ def evolve_population(verbose = False):
     _next_population = []
     if verbose: print("Evolving population from generation {}:".format(_population[0].generation))
     _population.sort(key=lambda fit: fit.fitness, reverse=True)
+    #####################
+    # save best model
+    NET_model.save_model(_population[0].model, "ES_models/ES_gen{:0>2}_fit{:0>3}.h5".format(_population[0].generation, _population[0].fitness))
     # selection
-    # 30% from original sorted by fitness population
+    #####################
+    # 25% from original sorted by fitness population
     i = 0
-    for index in range(len(_population) // 3):
+    for index in range(len(_population) // 4):
         p = _population[index]
         if verbose: print("Individual number {} selected, with fit of {}".format(p.indiv_id, p.fitness))
         p.fitness = 0
@@ -70,21 +93,27 @@ def evolve_population(verbose = False):
         p.generation = _generation_index
         _next_population.append(p)
         i += 1
-    # one randomly selected individual from the 70% less fitness original population
-    p = _population[np.random.randint(len(_population) // 3 + 1, len(_population))]
-    if verbose: print("Individual number {} selected randomly, with fit of {}".format(p.indiv_id, p.fitness))
-    p.fitness = 0
-    p.indiv_id = i
-    p.generation = _generation_index
-    _next_population.append(p)
-    i += 1
+    #####################
+    # # one randomly selected individual from the 70% less fitness original population
+    # p = _population[np.random.randint(len(_population) // 3 + 1, len(_population))]
+    # if verbose: print("Individual number {} selected randomly, with fit of {}".format(p.indiv_id, p.fitness))
+    # p.fitness = 0
+    # p.indiv_id = i
+    # p.generation = _generation_index
+    # _next_population.append(p)
+    # i += 1
+    #####################
     # crossover
     # fill _next_population with new individuals
     if verbose: print("Completing population doing crossover...")
     while len(_population) != len(_next_population):
-        p = _crossover(_next_population[np.random.randint(0, len(_next_population))], _next_population[np.random.randint(0, len(_next_population))], i, verbose)
+        if simple_crossover:
+            p = _simple_crossover(_next_population[np.random.randint(0, len(_next_population))], _next_population[np.random.randint(0, len(_next_population))], i, verbose)
+        else:
+            p = _crossover(_next_population[np.random.randint(0, len(_next_population))], _next_population[np.random.randint(0, len(_next_population))], i, verbose)
         _next_population.append(p)
         i += 1
+    #####################
     # mutate
     if verbose: print("Making mutations randomly over the entire population...")
     for p in _next_population:
