@@ -43,7 +43,8 @@ grid = None
 
 # NET
 model = None
-model_path_1 = "NET_model_1.h5"
+# model_path_1 = "NET_model_1.h5"
+model_path_1 = "./ES_models_1/ES_gen02_fit566.h5"
 model_path_2 = "NET_model_2.h5"
 model_pred_enable = False
 
@@ -118,20 +119,20 @@ class Player:
 
 def init_NET_model():
     global model
-    model = NET_model.create_model()
-    NET_model.load_trained_model(model, model_path_1)
+    model = NET_model.NET_model()
+    model.load_trained_model(model_path_1)
 
 
 def init_ES():
     global ES_population_size
     global ES_seed
-    model = NET_model.create_model()
-    NET_model.load_trained_model(model, model_path_1)
-    ES_seed.append(ES.ES_model(model, 0))
+    model = NET_model.NET_model()
+    model.load_trained_model(model_path_1)
+    ES_seed.append(ES.ES_indiv(model, 0))
 
-    model = NET_model.create_model()
-    NET_model.load_trained_model(model, model_path_2)
-    ES_seed.append(ES.ES_model(model, 1))
+    model = NET_model.NET_model()
+    model.load_trained_model(model_path_2)
+    ES_seed.append(ES.ES_indiv(model, 1))
 
     ES.new_population(ES_population_size, ES_seed, True)
     global ES_best_score
@@ -206,7 +207,7 @@ def move_player():
     elif ui_state_mode == 1:
         if model_pred_enable:
             global model
-            pred = NET_model.predict(model, grid)
+            pred = model.predict(grid)
             # print(pred)
             # print(np.argmax(pred[0]))
             player.next_x = np.argmax(pred[0]) * car_width
@@ -220,7 +221,7 @@ def move_player():
     elif ui_state_mode == 3:
         if model_pred_enable:
             global ES_indiv
-            pred = NET_model.predict(ES_indiv.model, grid)
+            pred = ES_indiv.model.predict(grid)
             # print(pred)
             # print(np.argmax(pred[0]))
             player.next_x = np.argmax(pred[0]) * car_width
@@ -251,7 +252,7 @@ def move_player():
             player.x = player.next_x
             game_state_crashed = check_crash()
     if game_state_crashed:
-        print("craaaaaaaaash")
+        print("Game Over")
     grid[0][player.y // car_height * 5 + player.x // car_width] = .5
     print("#-----------------------------------------------------------------#")
 
@@ -354,8 +355,16 @@ def init_game():
     # opponents
     global opponents
     opponents = []
-    for i in range(opponents_number):
-        opponents.append(Position(np.random.randint(4) * car_width, -car_height * np.random.randint(1, i + 2)))
+    # # if opponents are located completely random, could cause deadlock
+    # # for i in range(opponents_number):
+    # #     opponents.append(Position(np.random.randint(4) * car_width, -car_height * np.random.randint(1, i + 2)))
+    # to solve initial deadlock, positions are not fully random
+    opponents.append(Position(0 * car_width, -car_height * np.random.randint(1, 3)))
+    opponents.append(Position(0 * car_width, -car_height * np.random.randint(3, 5)))
+    opponents.append(Position(2 * car_width, -car_height * np.random.randint(1, 3)))
+    opponents.append(Position(2 * car_width, -car_height * np.random.randint(3, 5)))
+    opponents.append(Position(4 * car_width, -car_height * np.random.randint(1, 3)))
+    opponents.append(Position(4 * car_width, -car_height * np.random.randint(3, 5)))
     # game_state_vars
     game_state_score = 0
     global game_state_crashed
@@ -449,7 +458,7 @@ def draw_ui():
     # score
     global game_state_score
     write_text(screen, "Score: " + str(game_state_score), (107, 142, 35), 145, 40, game_W + 10, 100)
-    #speed
+    # speed
     global ui_state_speed
     write_text(screen, "Speed: " + str(ui_state_speed), (107, 142, 35), 145, 40, game_W + 10, 140)
     global speedDownButton
