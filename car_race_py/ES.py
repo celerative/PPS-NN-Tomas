@@ -52,7 +52,7 @@ def new_population(size=10, seed=None, verbose=False):
     _indiv_index = 0
     if seed is None:
         for indiv_id in range(size):
-            model = NET_model.create_model(random_weights_and_bias=True)
+            model = NET_model.NET_model(random_weights_and_bias=True)
             _population.append(ES_indiv(model, indiv_id))
     else:
         i = 0
@@ -114,7 +114,7 @@ def evolve_population(simple_crossover=False, verbose=False):
     _population.sort(key=lambda fit: fit.fitness, reverse=True)
     #####################
     # save best model
-    NET_model.save_model(_population[0].model, "ES_models/ES_gen{:0>2}_fit{:0>3}.h5".format(_population[0].generation, _population[0].fitness))
+    _population[0].model.save_model("ES_models/ES_gen{:0>2}_fit{:0>3}.h5".format(_population[0].generation, _population[0].fitness))
     #####################
     # selection
     # 25% from original sorted by fitness population
@@ -163,14 +163,24 @@ def evolve_population(simple_crossover=False, verbose=False):
 
 def _crossover(indiv1, indiv2, indiv_num, verbose=False):
     '''
+        # Create new ES_indiv from two selected parents
 
+        The crossover child have random number of weights and bias from each weights and bias parent1's vector and the rest from parent2
+
+        Arguments:
+            indiv1: ES_indiv to crossover
+            indiv2: ES_indiv to crossover
+            indiv_num: ID for new ES_indiv
+            verbose: show results
+
+        Return: new ES_indiv
     '''
     if verbose:
         print("Performing crossover with individuals {} and {}:".format(indiv1.indiv_id, indiv2.indiv_id))
     global _generation_index
-    w1 = NET_model.get_weights(indiv1.model)
-    w2 = NET_model.get_weights(indiv2.model)
-    new_w = NET_model.get_weights(indiv1.model)
+    w1 = indiv1.model.get_weights()
+    w2 = indiv2.model.get_weights()
+    new_w = indiv1.model.get_weights()
     for i in range(0, len(w1), 2):
         # weights
         for j in range(len(w1[i])):
@@ -185,34 +195,50 @@ def _crossover(indiv1, indiv2, indiv_num, verbose=False):
             print("Cuting bias from layer {} of {} neurons on index {}".format(i//2, len(w1[i+1]), index))
         for j in range(index):
             new_w[i+1][j] = w2[i+1][j]
-    m = NET_model.create_model(random_weights_and_bias=True)
-    NET_model.set_weights(m, new_w)
+    m = NET_model.NET_model(random_weights_and_bias=True)
+    m.set_weights(new_w)
     p = ES_indiv(m, indiv_num, _generation_index)
     return p
 
 
 def _simple_crossover(indiv1, indiv2, indiv_num, verbose=False):
     '''
+        # Create new ES_indiv from two selected parents
 
+        The SIMPLE crossover child is a direct clone from one of is parents
+
+        Arguments:
+            indiv1: ES_indiv to crossover
+            indiv2: ES_indiv to crossover
+            indiv_num: ID for new ES_indiv
+            verbose: show results
+
+        Return: new ES_indiv
     '''
     if verbose:
         print("Performing SIMPLE crossover with individuals {} and {}:".format(indiv1.indiv_id, indiv2.indiv_id))
     global _generation_index
     if np.random.random() > 0.5:
-        new_w = NET_model.get_weights(indiv1.model)
+        new_w = indiv1.model.get_weights()
     else:
-        new_w = NET_model.get_weights(indiv2.model)
-    m = NET_model.create_model(random_weights_and_bias=True)
-    NET_model.set_weights(m, new_w)
+        new_w = indiv2.model.get_weights()
+    m = NET_model.NET_model(random_weights_and_bias=True)
+    m.set_weights(new_w)
     p = ES_indiv(m, indiv_num, _generation_index)
     return p
 
 
 def _mutate(indiv, verbose=False):
     '''
+        # Perform random mutations on some weights and bias from the individual
 
+        Mutations possibilities are from 10% for each weights and bias.
+
+        Arguments:
+            indiv: ES_indiv to mutate
+            verbose: show results
     '''
-    w = NET_model.get_weights(indiv.model)
+    w = indiv.model.get_weights()
     w_mutated = 0
     b_mutated = 0
     for i in range(0, len(w), 2):
@@ -227,6 +253,6 @@ def _mutate(indiv, verbose=False):
             if np.random.random() > 0.9:
                 b_mutated += 1
                 w[i][j][k] += 2 * np.random.random() - 1
-    NET_model.set_weights(indiv.model, w)
+    indiv.model.set_weights(w)
     if verbose:
         print("Mutate randomly {} weights and {} bias on individual {}".format(w_mutated, b_mutated, indiv.indiv_id))

@@ -3,40 +3,108 @@ from keras.layers import Dense
 
 
 class NET_model:
-    def __init__(self, random_weights_and_bias=False):
+    '''
+        # Keras secuential model interface for ES, RL or sgd training
+
+        The architecture for ANN is define in constructor, easily editable by adding layers (Denses) in it.
+
+        Argument:
+        * input_size: number for 1 dim input layer (input neurons)
+        * random_weights_and_bias: generate random weights and bias if True or random weights and zeros bias if False, by default False.
+    '''
+    def __init__(self, input_size=30, random_weights_and_bias=False):
         self.model = Sequential()
         _kernel_initializer = 'glorot_uniform'
         _bias_initializer = 'zeros'
+        _input_dim = input_size
         if random_weights_and_bias:
             # modify random initializer if needed
             _kernel_initializer = 'glorot_uniform'
             _bias_initializer = 'glorot_uniform'
-        # Architecture of ANN can be modify here addind or removing Denses
-        self.model.add(Dense(15, activation='relu', kernel_initializer=_kernel_initializer, bias_initializer=_bias_initializer, input_dim=30))
+        # Architecture of ANN can be modify here adding or removing Denses
+        self.model.add(Dense(15, activation='relu', kernel_initializer=_kernel_initializer, bias_initializer=_bias_initializer, input_dim=_input_dim))
         self.model.add(Dense(10, activation='tanh', kernel_initializer=_kernel_initializer, bias_initializer=_bias_initializer))
         self.model.add(Dense(5, activation='softmax', kernel_initializer=_kernel_initializer, bias_initializer=_bias_initializer))
 
     def compile(self):
+        '''
+            # Compile Keras model
+
+            Some actions needs to have the model compiled to be perform
+        '''
         self.model.compile(loss='categorical_crossentropy', optimizer='sgd', metrics=['accuracy'])
 
     def train(self, x_train, y_train):
+        '''
+            # Train Keras model with SGD strategy
+
+            Given data must have the correct structure for the Keras model in use
+
+            Arguments:
+                x_train: numpy array with input data for model
+                y_train: numpy array with output data for model
+        '''
         self.model.compile(loss='categorical_crossentropy', optimizer='sgd', metrics=['accuracy'])
         self.model.fit(x_train, y_train, epochs=30, batch_size=5)
 
     def evaluate(self, x_test, y_test):
+        '''
+            # Evalueate Keras model
+
+            Given data must have the correct structure for the Keras model in use
+
+            Arguments:
+                x_test: numpy array with input data for model
+                y_test: numpy array with output data for model
+
+            Return: Loss and Acc list perform by test data set
+        '''
         return self.model.evaluate(x_test, y_test, batch_size=5)
 
     def predict(self, x_predict):
+        '''
+            # Run Keras model and predict output data from inputs
+
+            Given data must have the correct structure for the Keras model in use
+
+            Arguments:
+                x_predict: numpy array with input data for model
+
+            Return: numpy array with output data from model
+        '''
         return self.model.predict(x_predict, batch_size=5)
 
-    def load_trained_model(self, weights_path):
-        self.model.load_weights(weights_path)
+    def load_model(self, model_path):
+        '''
+            # Load Keras model from file
+
+            Arguments:
+                model_path: file path and name
+        '''
+        self.model.load_weights(model_path)
 
     def save_model(self, model_path):
+        '''
+            # Save Keras model to file
+
+            Arguments:
+                model_path: file path and name
+        '''
         self.model.save(model_path)
 
     def get_weights(self):
+        '''
+            # Return weights and bias from Keras model
+
+            Return: list of arrays with weights and bias
+        '''
         return self.model.get_weights()
 
     def set_weights(self, weights):
+        '''
+            # Set weights and bias to Keras model
+
+            Arguments:
+                weights: list of arrays with weights and bias
+        '''
         self.model.set_weights(weights)

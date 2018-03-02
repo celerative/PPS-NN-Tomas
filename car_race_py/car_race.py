@@ -43,8 +43,7 @@ grid = None
 
 # NET
 model = None
-# model_path_1 = "NET_model_1.h5"
-model_path_1 = "./ES_models_1/ES_gen02_fit566.h5"
+model_path_1 = "NET_model_1.h5"
 model_path_2 = "NET_model_2.h5"
 model_pred_enable = False
 
@@ -120,19 +119,35 @@ class Player:
 def init_NET_model():
     global model
     model = NET_model.NET_model()
-    model.load_trained_model(model_path_1)
+    model.load_model(model_path_1)
 
 
 def init_ES():
     global ES_population_size
     global ES_seed
     model = NET_model.NET_model()
-    model.load_trained_model(model_path_1)
+    model.load_model("./ES_models_0/ES_gen03_fit355.h5")
     ES_seed.append(ES.ES_indiv(model, 0))
 
     model = NET_model.NET_model()
-    model.load_trained_model(model_path_2)
+    model.load_model("./ES_models_0/ES_gen08_fit367.h5")
     ES_seed.append(ES.ES_indiv(model, 1))
+
+    model = NET_model.NET_model()
+    model.load_model("./ES_models_1/ES_gen02_fit566.h5")
+    ES_seed.append(ES.ES_indiv(model, 2))
+
+    model = NET_model.NET_model()
+    model.load_model("./ES_models_1/ES_gen04_fit340.h5")
+    ES_seed.append(ES.ES_indiv(model, 3))
+
+    model = NET_model.NET_model()
+    model.load_model("./ES_models_1/ES_gen10_fit588.h5")
+    ES_seed.append(ES.ES_indiv(model, 4))
+
+    model = NET_model.NET_model()
+    model.load_model("./ES_models_1/ES_gen11_fit323.h5")
+    ES_seed.append(ES.ES_indiv(model, 5))
 
     ES.new_population(ES_population_size, ES_seed, True)
     global ES_best_score
