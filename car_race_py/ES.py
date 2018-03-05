@@ -72,9 +72,9 @@ def new_population(size=10, seed=None, verbose=False):
 
 def get_next_indiv(simple_crossover=False, verbose=False):
     '''
-        # Return next indiv to train from the populations
+        # Return next indiv from populations
 
-        if population reachs the end, automaticale evolve it and return first indiv from next generation
+        if population reachs the end, automaticaly evolve it and return first indiv from next generation
 
         Arguments:
             simple_crossover: generates clone from one random parent insted of cross parents NET_models
@@ -94,6 +94,28 @@ def get_next_indiv(simple_crossover=False, verbose=False):
         print("Next individual ID: {}".format(pop.indiv_id))
     _indiv_index += 1
     return pop
+
+
+def get_indiv(indiv_id, verbose=False):
+    '''
+        # Return indiv by id from populations
+
+        if indiv_id is out of range from population size, return None.
+
+        Arguments:
+            indiv_id: id or index for individual in population list
+            verbose: show results
+
+        Return: ES_indiv with indiv_id given from population
+    '''
+    global _population
+    if indiv_id < len(_population):
+        pop = _population[indiv_id]
+        return pop
+    else:
+        if verbose:
+            print("Index {} out of range".format(indiv_id))
+        return None
 
 
 def evolve_population(simple_crossover=False, verbose=False):

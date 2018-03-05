@@ -29,13 +29,13 @@ for d in data:
 data_path = []
 
 player_pos = -1
-l = []
+lis = []
 l_final = []
 data_aux = []
 
 
 def calculate_path(p, yy, xx, r, score):
-    global l
+    global lis
     global l_final
     global final_score
     # global aux_dir
@@ -47,30 +47,30 @@ def calculate_path(p, yy, xx, r, score):
                 final_score = score
                 # final_dir =  aux_dir
                 l_final = []
-                for ll in l:
+                for ll in lis:
                     l_final.append(ll)
         else:
             # buscar a izquierda
             if xx < 4 and p[yy][xx + 1] < 0 and r != 1:
                 # if yy == 5:
                 #     aux_dir = 0
-                l.append([('y', yy), ('xx', xx), ('peso', p[yy][xx])])
+                lis.append([('y', yy), ('xx', xx), ('peso', p[yy][xx])])
                 calculate_path(p, yy, xx + 1, 0, score + p[yy][xx])
-                del l[-1]
+                del lis[-1]
             # buscar a derecha
             if xx > 0 and p[yy][xx - 1] < 0 and r != 0:
                 # if yy == 5:
                 #     aux_dir = 1
-                l.append([('y', yy), ('xx', xx), ('peso', p[yy][xx])])
+                lis.append([('y', yy), ('xx', xx), ('peso', p[yy][xx])])
                 calculate_path(p, yy, xx - 1, 1, score + p[yy][xx])
-                del l[-1]
+                del lis[-1]
             # buscar arriba
             if yy > 0 and p[yy - 1][xx] < 0:
                 # if yy == 5:
                 #     aux_dir = .5
-                l.append([('y', yy), ('xx', xx), ('peso', p[yy][xx])])
+                lis.append([('y', yy), ('xx', xx), ('peso', p[yy][xx])])
                 calculate_path(p, yy - 1, xx, .5, score + p[yy][xx])
-                del l[-1]
+                del lis[-1]
 
 
 print("Calculating expected answers from {0} data candidates:"

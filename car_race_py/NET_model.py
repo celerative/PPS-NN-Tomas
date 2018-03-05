@@ -9,8 +9,8 @@ class NET_model:
         The architecture for ANN is define in constructor, easily editable by adding layers (Denses) in it.
 
         Argument:
-        * input_size: number for 1 dim input layer (input neurons)
-        * random_weights_and_bias: generate random weights and bias if True or random weights and zeros bias if False, by default False.
+        * input_size: number for 1 dim input layer (input neurons), by default is 30.
+        * random_weights_and_bias: generate random weights and bias if True or random weights and zeros bias if False, by default is False.
     '''
     def __init__(self, input_size=30, random_weights_and_bias=False):
         self.model = Sequential()
@@ -25,6 +25,7 @@ class NET_model:
         self.model.add(Dense(15, activation='relu', kernel_initializer=_kernel_initializer, bias_initializer=_bias_initializer, input_dim=_input_dim))
         self.model.add(Dense(10, activation='tanh', kernel_initializer=_kernel_initializer, bias_initializer=_bias_initializer))
         self.model.add(Dense(5, activation='softmax', kernel_initializer=_kernel_initializer, bias_initializer=_bias_initializer))
+        self._compiled = False
 
     def compile(self):
         '''
@@ -33,19 +34,35 @@ class NET_model:
             Some actions needs to have the model compiled to be perform
         '''
         self.model.compile(loss='categorical_crossentropy', optimizer='sgd', metrics=['accuracy'])
+        self._compiled = True
 
     def train(self, x_train, y_train):
         '''
             # Train Keras model with SGD strategy
 
-            Given data must have the correct structure for the Keras model in use
+            Given data must have the correct structure for the Keras model in use.
 
             Arguments:
                 x_train: numpy array with input data for model
                 y_train: numpy array with output data for model
         '''
-        self.model.compile(loss='categorical_crossentropy', optimizer='sgd', metrics=['accuracy'])
+        if not self._compiled:
+            self.compile(self)
         self.model.fit(x_train, y_train, epochs=30, batch_size=5)
+
+    def train_on_batch(self, x_train, y_train):
+        '''
+            # Train Keras model with single gradient update on a single batch of data with SGD strategy
+
+            Given data must have the correct structure for the Keras model in use.
+
+            Arguments:
+                x_train: numpy array with input data for model
+                y_train: numpy array with output data for model
+        '''
+        if not self._compiled:
+            self.compile(self)
+        self.model.train_on_batch(x_train, y_train)
 
     def evaluate(self, x_test, y_test):
         '''
