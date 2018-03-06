@@ -204,12 +204,12 @@ if len(data) >= 11000:
             x_predict[0][i * 5 + j] = data[x][0][i][j]
 
     import NET_model
-    model = NET_model.create_model()
-    NET_model.train(model, x_train, y_train)
-    loss_and_acc = NET_model.evaluate(model, x_test, y_test)
+    model = NET_model.NET_model()
+    model.train(x_train, y_train)
+    loss_and_acc = model.evaluate(x_test, y_test)
     print("Evaluated test_data results --> loss: {0:.4f} - acc: {1:.4f}"
           .format(loss_and_acc[0], loss_and_acc[1]))
-    y_predict = NET_model.predict(model, x_predict)
+    y_predict = model.predict(x_predict)
     print("Predicted solution for data number {0}:".format(x))
     print("[{} , {} , {} , {} , {} ],\n"
           "[{} , {} , {} , {} , {} ],\n"
@@ -224,7 +224,7 @@ if len(data) >= 11000:
     print("Expected results:")
     print("[{} , {} , {} , {} , {} ]"
           .format(*data[x][1]))
-    NET_model.save_model(model, 'NET_model_2.h5')
+    model.save_model('NET_model.h5')
     data_final = [(10000, x_train), (10000, y_train), (1000, x_test),
                   (1000, y_test), (1, x_predict)]
     save = input("Save training data? [Y/n]: ")

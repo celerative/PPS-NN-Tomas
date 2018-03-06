@@ -12,19 +12,20 @@ class NET_model:
         * input_size: number for 1 dim input layer (input neurons), by default is 30.
         * random_weights_and_bias: generate random weights and bias if True or random weights and zeros bias if False, by default is False.
     '''
-    def __init__(self, input_size=30, random_weights_and_bias=False):
+    def __init__(self, input_shape=30, output_shape=5, random_weights_and_bias=False):
         self.model = Sequential()
         _kernel_initializer = 'glorot_uniform'
         _bias_initializer = 'zeros'
-        _input_dim = input_size
+        self.input_shape = input_shape
+        self.output_shape = output_shape
         if random_weights_and_bias:
             # modify random initializer if needed
             _kernel_initializer = 'glorot_uniform'
             _bias_initializer = 'glorot_uniform'
         # Architecture of ANN can be modify here adding or removing Denses
-        self.model.add(Dense(15, activation='relu', kernel_initializer=_kernel_initializer, bias_initializer=_bias_initializer, input_dim=_input_dim))
+        self.model.add(Dense(15, activation='relu', kernel_initializer=_kernel_initializer, bias_initializer=_bias_initializer, input_dim=input_shape))
         self.model.add(Dense(10, activation='tanh', kernel_initializer=_kernel_initializer, bias_initializer=_bias_initializer))
-        self.model.add(Dense(5, activation='softmax', kernel_initializer=_kernel_initializer, bias_initializer=_bias_initializer))
+        self.model.add(Dense(output_shape, activation='softmax', kernel_initializer=_kernel_initializer, bias_initializer=_bias_initializer))
         self._compiled = False
 
     def compile(self):
@@ -45,10 +46,12 @@ class NET_model:
             Arguments:
                 x_train: numpy array with input data for model
                 y_train: numpy array with output data for model
+
+            Return: Loss and Acc list perform by test data set
         '''
         if not self._compiled:
-            self.compile(self)
-        self.model.fit(x_train, y_train, epochs=30, batch_size=5)
+            self.compile()
+        return self.model.fit(x_train, y_train, epochs=30, batch_size=5)
 
     def train_on_batch(self, x_train, y_train):
         '''
@@ -59,10 +62,12 @@ class NET_model:
             Arguments:
                 x_train: numpy array with input data for model
                 y_train: numpy array with output data for model
+
+            Return: Loss and Acc list perform by test data set
         '''
         if not self._compiled:
-            self.compile(self)
-        self.model.train_on_batch(x_train, y_train)
+            self.compile()
+        return self.model.train_on_batch(x_train, y_train)
 
     def evaluate(self, x_test, y_test):
         '''
