@@ -1,5 +1,6 @@
 import pygame as pg
 import numpy as np
+from reward import get_reward
 import Buttons
 import NET_model
 import ES
@@ -291,6 +292,20 @@ def shuffle_needed():
                 return True
     ###
     # check for holes in creasent diagonals (right and left diags) for each opponent
+    aux_grid = np.zeros(shape=(1, 30), dtype=float)
+    for op in opponents:
+        if op.y < 0 and op.y > -game_rows:
+            aux_grid[0][(op.y + game_rows) // car_height * 5 + op.x // car_width] = 1
+    while get_reward(aux_grid) == -1:
+        ###
+        # delete diagonal opponents
+        index = np.random.randint(0, len(opponents))
+        if opponents[index].y < 0:
+            opponents[index].y -= car_height * 2
+        aux_grid = np.zeros(shape=(1, 30), dtype=float)
+        for op in opponents:
+            if op.y < 0 and op.y > -game_rows:
+                aux_grid[0][(op.y + game_rows) // car_height * 5 + op.x // car_width] = 1
     return False
 
 
@@ -322,8 +337,6 @@ def move_opponents():
                         opponents[j].y -= car_height
                 while opponents[j].x == opponents[i].x and np.absolute(opponents[j].y - opponents[i].y) < 2 * car_height:
                     opponents[j].y -= car_height
-        ###
-        # delete diagonal of opponents
     global grid
     for op in opponents:
         if op.y >= 0 and op.y < game_rows:
@@ -370,16 +383,23 @@ def init_game():
     # opponents
     global opponents
     opponents = []
-    # # if opponents are located completely random, could cause deadlock
-    # # for i in range(opponents_number):
-    # #     opponents.append(Position(np.random.randint(4) * car_width, -car_height * np.random.randint(1, i + 2)))
+    # if opponents are located completely random, could cause deadlock
+    for i in range(opponents_number):
+        opponents.append(Position(np.random.randint(4) * car_width, -car_height * np.random.randint(1, i + 2)))
     # to solve initial deadlock, positions are not fully random
-    opponents.append(Position(0 * car_width, -car_height * np.random.randint(1, 3)))
-    opponents.append(Position(0 * car_width, -car_height * np.random.randint(3, 5)))
-    opponents.append(Position(2 * car_width, -car_height * np.random.randint(1, 3)))
-    opponents.append(Position(2 * car_width, -car_height * np.random.randint(3, 5)))
-    opponents.append(Position(4 * car_width, -car_height * np.random.randint(1, 3)))
-    opponents.append(Position(4 * car_width, -car_height * np.random.randint(3, 5)))
+    # opponents.append(Position(0 * car_width, -car_height * np.random.randint(1, 3)))
+    # opponents.append(Position(0 * car_width, -car_height * np.random.randint(3, 5)))
+    # opponents.append(Position(2 * car_width, -car_height * np.random.randint(1, 3)))
+    # opponents.append(Position(2 * car_width, -car_height * np.random.randint(3, 5)))
+    # opponents.append(Position(4 * car_width, -car_height * np.random.randint(1, 3)))
+    # opponents.append(Position(4 * car_width, -car_height * np.random.randint(3, 5)))
+    # insert diagonal of opponents
+    # opponents.append(Position(3 * car_width, -car_height * 2))
+    # opponents.append(Position(4 * car_width, -car_height * 1))
+    # opponents.append(Position(2 * car_width, -car_height * 3))
+    # opponents.append(Position(1 * car_width, -car_height * 4))
+    # opponents.append(Position(0 * car_width, -car_height * 5))
+    # opponents.append(Position(3 * car_width, -car_height * 8))
     # game_state_vars
     game_state_score = 0
     global game_state_crashed

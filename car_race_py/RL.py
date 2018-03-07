@@ -20,39 +20,52 @@ class RL_indiv:
         Atributes:
         * model --> NET_model representation of ANN (see NET_model for more info)
     '''
-    def __init__(self, model, reward_function, batch_size=10, history_size=100, verbose=False):
+    def __init__(self, model=None, outcome_activation="relu", batch_size=10, history_size=100, game_over_state=True, verbose=False):
         if model is None:
             model = NET_model.NET_model()
         else:
             self.model = model
-        self.reward_function = reward_function
+        self.activation = outcome_activation
         self.batch_size = batch_size
         self.history_size = history_size
         self.history = []
+        self.game_over_state = game_over_state
         self.verbose = verbose
 
     def replay_train(self):
         pass
 
+    def save_itaration(self, state_now, action, reward, state_next, game_over=False):
+        if self.game_over_state:
+            self.history.append(state_now, action, reward, state_next, game_over)
+        else:
+            self.history.append(state_now, action, reward, state_next, False)
+        if len(self.history) > self.history_size:
+            del self.history[0]
+
     def get_batch(self):
         len_history = len(self.history)
-        in_shape_size = self.model.input_shape
-        out_shape_size = self.model.output_shape
         train_size = (min(len_history, self.batch_size))
-        train_x = np.zeros(train_size, in_shape_size)
-        train_y = np.zeros(train_size, out_shape_size)
-        for i, idx in enumerate(np.random.randint(0, len_history, size=train_x.shape[0])):
-            state_now, action, reward, state_next = self.memory[idx][0]
-            game_over = self.memory[idx][1]
-
+        train_x = np.zeros((train_size, self.model.input_shape))
+        train_y = np.zeros((train_size, self.model.output_shape))
+        for i, i_history in enumerate(np.random.randint(0, len_history, size=train_size)):
+            state_now, action, reward, state_next, game_over = self.history[i_history]
             train_x[i] = state_now
             # There should be no target values for actions not taken.
             # Thou shalt not correct actions not taken #deep
-            train_y[i] = self.model.predict(state_now)[0]
-            Q_sa = np.max(self.model.predict(state_next)[0])
-            if game_over:  # if game_over is True
-                train_y[i][action] = reward
-            else:
-                # reward_t + gamma * max_a' Q(s', a')
-                train_y[i][action] = reward + self.discount * Q_sa
+            if self.activation == "relu":
+                train_y[i] = self.model.predict(state_now)[0]
+                Q_sa = np.max(self.model.predict(state_next)[0])
+                if game_over:  # if game_over is True
+                    train_y[i][action] = reward
+                else:
+                    # reward_t + gamma * max_a' Q(s', a')
+                    train_y[i][action] = reward + self.discount * Q_sa
+            elif self.activation == "softmax":
+                if reward == 1:
+                    if game_over:  # if game_over is True (with reward 1 the game ends on win)
+                        train_y[i][action] = reward
+                    else:
+                        # the action taken was correct
+                        train_y[i][action] = reward
         return train_x, train_y

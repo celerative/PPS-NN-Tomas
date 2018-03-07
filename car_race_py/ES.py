@@ -140,8 +140,9 @@ def evolve_population(simple_crossover=False, verbose=False):
     #####################
     # selection
     # 25% from original sorted by fitness population
+    parents_count = len(_population) // 4
     i = 0
-    for index in range(len(_population) // 4):
+    for index in range(parents_count):
         p = _population[index]
         if verbose:
             print("Individual number {} selected, with fit of {}".format(p.indiv_id, p.fitness))
@@ -166,9 +167,9 @@ def evolve_population(simple_crossover=False, verbose=False):
         print("Completing population doing crossover...")
     while len(_population) != len(_next_population):
         if simple_crossover:
-            p = _simple_crossover(_next_population[np.random.randint(0, len(_next_population))], _next_population[np.random.randint(0, len(_next_population))], i, verbose)
+            p = _simple_crossover(_next_population[np.random.randint(0, parents_count)], _next_population[np.random.randint(0, parents_count)], i, verbose)
         else:
-            p = _crossover(_next_population[np.random.randint(0, len(_next_population))], _next_population[np.random.randint(0, len(_next_population))], i, verbose)
+            p = _crossover(_next_population[np.random.randint(0, parents_count)], _next_population[np.random.randint(0, parents_count)], i, verbose)
         _next_population.append(p)
         i += 1
     #####################
@@ -269,12 +270,20 @@ def _mutate(indiv, verbose=False):
             for k in range(len(w[i][j])):
                 if np.random.random() > 0.9:
                     w_mutated += 1
-                    w[i][j][k] += 2 * np.random.random() - 1
+                    if np.random.random() > 0.5:
+                        w[i][j][k] += w[i][j][k] * 0.05
+                    else:
+                        w[i][j][k] -= w[i][j][k] * 0.05
+                    # w[i][j][k] = 2 * np.random.random() - 1
         # bias
         for j in range(len(w[i+1])):
             if np.random.random() > 0.9:
                 b_mutated += 1
-                w[i][j][k] += 2 * np.random.random() - 1
+                if np.random.random() > 0.5:
+                    w[i+1][j] += w[i+1][j] * 0.05
+                else:
+                    w[i+1][j] -= w[i+1][j] * 0.05
+                # w[i+1][j] = 2 * np.random.random() - 1
     indiv.model.set_weights(w)
     if verbose:
         print("Mutate randomly {} weights and {} bias on individual {}".format(w_mutated, b_mutated, indiv.indiv_id))
