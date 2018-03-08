@@ -50,6 +50,7 @@ model_pred_enable = False
 
 # ES
 ES_population_size = 10
+ES_population = None
 ES_indiv = None
 ES_is_running = False
 ES_seed = []
@@ -150,11 +151,12 @@ def init_ES():
     model.load_model("./ES_models_1/ES_gen11_fit323.h5")
     ES_seed.append(ES.ES_indiv(model, 5))
 
-    ES.new_population(ES_population_size, ES_seed, True)
     global ES_best_score
     ES_best_score = 0
+    global ES_population
+    ES_population = ES.Population(ES_population_size, ES_seed, True)
     global ES_indiv
-    ES_indiv = ES.get_next_indiv()
+    ES_indiv = ES_population.get_next_indiv()
 
 
 def draw_grid():
@@ -270,7 +272,6 @@ def move_player():
     if game_state_crashed:
         print("Game Over")
     grid[0][player.y // car_height * 5 + player.x // car_width] = .5
-    print("#-----------------------------------------------------------------#")
 
 
 def check_crash():
@@ -368,7 +369,8 @@ def init_game():
             if game_state_score > ES_best_score:
                 ES_best_score = game_state_score
             ES_indiv.fitness = game_state_score
-            ES_indiv = ES.get_next_indiv()
+            global ES_population
+            ES_indiv = ES_population.get_next_indiv()
         else:
             ES_is_running = True
             init_ES()
@@ -384,15 +386,15 @@ def init_game():
     global opponents
     opponents = []
     # if opponents are located completely random, could cause deadlock
-    for i in range(opponents_number):
-        opponents.append(Position(np.random.randint(4) * car_width, -car_height * np.random.randint(1, i + 2)))
+    # for i in range(opponents_number):
+    #     opponents.append(Position(np.random.randint(4) * car_width, -car_height * np.random.randint(1, i + 2)))
     # to solve initial deadlock, positions are not fully random
-    # opponents.append(Position(0 * car_width, -car_height * np.random.randint(1, 3)))
-    # opponents.append(Position(0 * car_width, -car_height * np.random.randint(3, 5)))
-    # opponents.append(Position(2 * car_width, -car_height * np.random.randint(1, 3)))
-    # opponents.append(Position(2 * car_width, -car_height * np.random.randint(3, 5)))
-    # opponents.append(Position(4 * car_width, -car_height * np.random.randint(1, 3)))
-    # opponents.append(Position(4 * car_width, -car_height * np.random.randint(3, 5)))
+    opponents.append(Position(0 * car_width, -car_height * np.random.randint(1, 3)))
+    opponents.append(Position(0 * car_width, -car_height * np.random.randint(3, 5)))
+    opponents.append(Position(2 * car_width, -car_height * np.random.randint(1, 3)))
+    opponents.append(Position(2 * car_width, -car_height * np.random.randint(3, 5)))
+    opponents.append(Position(4 * car_width, -car_height * np.random.randint(1, 3)))
+    opponents.append(Position(4 * car_width, -car_height * np.random.randint(3, 5)))
     # insert diagonal of opponents
     # opponents.append(Position(3 * car_width, -car_height * 2))
     # opponents.append(Position(4 * car_width, -car_height * 1))
@@ -429,6 +431,7 @@ def update_game():
             # reset data
             global grid
             grid = np.zeros(shape=(1, 30), dtype=float)
+            print("#-----------------------------------------------------------------#")
 
 
 def draw_game():
