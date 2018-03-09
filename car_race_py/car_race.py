@@ -4,6 +4,7 @@ from reward import get_reward
 import Buttons
 import NET_model
 import ES
+import RL
 
 pg.init()
 screen = pg.display.set_mode((500, 500))
@@ -39,9 +40,6 @@ Mode 3: Train NET with Evolutive Population
 
 '''
 
-# data
-grid = None
-
 # NET
 model = None
 model_path_1 = "NET_model_1.h5"
@@ -51,10 +49,14 @@ model_pred_enable = False
 # ES
 ES_population_size = 10
 ES_population = None
-ES_indiv = None
+ES_ind = None
 ES_is_running = False
 ES_seed = []
 ES_best_score = 0
+
+# RL
+RL_ind = None
+RL_best_score = 0
 
 # game vars
 game_cols = 21
@@ -117,11 +119,84 @@ class Player:
         self.last_x = -1
         self.next_x = -1
 
+    def move(self, opponents, mode, Model):
+        board = np.zeros((1, 30))
+        move_enable = False
+        for op in opponents:
+            if op.y >= 0 and op.y < game_rows:
+                if op.y % car_height == 0:
+                    move_enable = True
+                board[0][op.y // car_height * 5 + op.x // car_width] = 1
+        self.next_x = self.x
+        board[0][self.y // car_height * 5 + self.x // car_width] = .5
+        if mode == 0:
+            # Mode 0: Manual game
+            self._manual()
+            multi_steps = False
+        elif mode == 2:
+            # Mode 2: Train NET with Reinforce Learning
+            # if np.random.random() > 0.95:  # percentage to take random action
+            if False:  # force to predict action
+                if move_enable:
+                    self.next_x = np.random.randint(5) * car_width
+                    print("RANDOM")
+            else:
+                self._network(board, Model)
+            multi_steps = True
+        else:
+            # Mode 1: Run Trained NET
+            # Mode 3: Train NET with Evolutive Population
+            self._network(board, Model)
+            multi_steps = True
+        #####################
+        self.last_x = self.x
+        crashed = self.check_crash(opponents)
+        if not crashed:
+            if multi_steps:
+                while self.next_x != self.x:
+                    if self.next_x < self.x:
+                        self.x -= car_width
+                        print("<--")
+                    else:
+                        self.x += car_width
+                        print("-->")
+                    crashed = self.check_crash(opponents)
+                    if crashed:
+                        break
+            else:
+                if self.next_x < self.x:
+                    print("<--")
+                elif self.next_x > self.x:
+                    print("-->")
+                self.x = self.next_x
+                crashed = self.check_crash(opponents)
+        # if crash, return False
+        return crashed
 
-def init_NET_model():
+    def check_crash(self, opponents):
+        for op in opponents:
+            if np.absolute(op.x - self.x) < car_width and np.absolute(op.y - self.y) < car_height:
+                return True
+        return False
+
+    def _manual(self):
+        pressed = pg.key.get_pressed()
+        if pressed[pg.K_LEFT]:
+            if self.x > 0:
+                self.next_x = self.x - car_width
+        elif pressed[pg.K_RIGHT]:
+            if self.x < 12:
+                self.next_x = self.x + car_width
+
+    def _network(self, board, Model):
+        pred = Model.predict(board)
+        self.next_x = np.argmax(pred[0]) * car_width
+
+
+def init_NET(model_path):
     global model
     model = NET_model.NET_model()
-    model.load_model(model_path_1)
+    model.load_model(model_path)
 
 
 def init_ES():
@@ -155,8 +230,21 @@ def init_ES():
     ES_best_score = 0
     global ES_population
     ES_population = ES.Population(ES_population_size, ES_seed, True)
-    global ES_indiv
-    ES_indiv = ES_population.get_next_indiv()
+    for ind in range(ES_population_size):
+        indiv = ES_population.get_indiv(ind)
+        indiv.indiv_obj = Player(2 * car_width, 5 * car_height)
+    global ES_ind
+    ES_ind = ES_population.get_next_indiv()
+
+
+def init_RL(reset_RL=False):
+    if RL_ind is None or reset_RL:
+        model = NET_model.NET_model()
+        model.load_model(model_path_1)
+        global RL_ind
+        RL_ind = RL.RL_indiv(model, outcome_activation="softmax", batch_size=50, history_size=200, game_over_state=False)
+        global RL_best_score
+        RL_best_score = 0
 
 
 def draw_grid():
@@ -193,94 +281,6 @@ def draw_walls():
             draw_rect(1, i, game_color_wall)
             draw_rect(game_cols - 2, i, game_color_wall)
         state = (state + 1) % 3
-
-
-def move_player():
-    global player
-    player.next_x = player.x
-    global game_state_multi_steps
-    global ui_state_mode
-    global grid
-    grid[0][player.y // car_height * 5 + player.x // car_width] = .5
-    # print(grid)
-    # print("[{} | {} | {} | {} | {} ]\n"
-    #       "[{} | {} | {} | {} | {} ]\n"
-    #       "[{} | {} | {} | {} | {} ]\n"
-    #       "[{} | {} | {} | {} | {} ]\n"
-    #       "[{} | {} | {} | {} | {} ]\n"
-    #       "[{} | {} | {} | {} | {} ]\n"
-    #       "------------------------------"
-    #       .format(*grid[0]))
-    # Mode 0: Manual game
-    if ui_state_mode == 0:
-        pressed = pg.key.get_pressed()
-        if pressed[pg.K_LEFT]:
-            if player.x > 0:
-                player.next_x = player.x - car_width
-        elif pressed[pg.K_RIGHT]:
-            if player.x < 12:
-                player.next_x = player.x + car_width
-        game_state_multi_steps = False
-    # Mode 1: Run Trained NET
-    elif ui_state_mode == 1:
-        if model_pred_enable:
-            global model
-            pred = model.predict(grid)
-            # print(pred)
-            # print(np.argmax(pred[0]))
-            player.next_x = np.argmax(pred[0]) * car_width
-            global model_pred_enable
-            # model_pred_enable = False  # should work always because positions were normalized
-            game_state_multi_steps = True
-    # Mode 2: Train NET with Reinforce Learning
-    elif ui_state_mode == 2:
-        pass
-    # Mode 3: Train NET with Evolutive Population
-    elif ui_state_mode == 3:
-        if model_pred_enable:
-            global ES_indiv
-            pred = ES_indiv.model.predict(grid)
-            # print(pred)
-            # print(np.argmax(pred[0]))
-            player.next_x = np.argmax(pred[0]) * car_width
-            global model_pred_enable
-            # model_pred_enable = False  # should work always because positions were normalized
-            game_state_multi_steps = True
-    grid[0][player.y // car_height * 5 + player.x // car_width] = 0
-    player.last_x = player.x
-    global game_state_crashed
-    game_state_crashed = check_crash()
-    if not game_state_crashed:
-        if game_state_multi_steps:
-            while player.next_x != player.x:
-                if player.next_x < player.x:
-                    player.x -= car_width
-                    print("<--")
-                else:
-                    player.x += car_width
-                    print("-->")
-                game_state_crashed = check_crash()
-                if game_state_crashed:
-                    break
-        else:
-            if player.next_x < player.x:
-                print("<--")
-            elif player.next_x > player.x:
-                print("-->")
-            player.x = player.next_x
-            game_state_crashed = check_crash()
-    if game_state_crashed:
-        print("Game Over")
-    grid[0][player.y // car_height * 5 + player.x // car_width] = .5
-
-
-def check_crash():
-    global opponents
-    global player
-    for op in opponents:
-        if np.absolute(op.x - player.x) < car_width and np.absolute(op.y - player.y) < car_height:
-            return True
-    return False
 
 
 def shuffle_needed():
@@ -338,13 +338,6 @@ def move_opponents():
                         opponents[j].y -= car_height
                 while opponents[j].x == opponents[i].x and np.absolute(opponents[j].y - opponents[i].y) < 2 * car_height:
                     opponents[j].y -= car_height
-    global grid
-    for op in opponents:
-        if op.y >= 0 and op.y < game_rows:
-            if op.y % car_height:
-                global model_pred_enable
-                model_pred_enable = True
-            grid[0][op.y // car_height * 5 + op.x // car_width] = 1
 
 
 def init_game():
@@ -356,32 +349,31 @@ def init_game():
     global ui_state_mode
     # Mode 1: Run Trained NET
     if ui_state_mode == 1:
-        init_NET_model()
+        init_NET(model_path_1)
     # Mode 2: Train NET with Reinforce Learning
     elif ui_state_mode == 2:
-        pass
+        global RL_best_score
+        if game_state_score > RL_best_score:
+            RL_best_score = game_state_score
+        init_RL()
     # Mode 3: Train NET with Evolutive Population
     elif ui_state_mode == 3:
         global ES_is_running
         if ES_is_running:
-            global ES_indiv
+            global ES_ind
             global ES_best_score
             if game_state_score > ES_best_score:
                 ES_best_score = game_state_score
-            ES_indiv.fitness = game_state_score
+            ES_ind.fitness = game_state_score
             global ES_population
-            ES_indiv = ES_population.get_next_indiv()
+            ES_ind = ES_population.get_next_indiv()
         else:
             ES_is_running = True
             init_ES()
-    # data
-    global grid
-    grid = np.zeros(shape=(1, 30), dtype=float)
     # player
     global player
     player = Player(2 * car_width, 5 * car_height)
     draw_car(player.x, player.y, game_color_player)
-    grid[0][player.y // car_height * 5 + player.x // car_width] = .5
     # opponents
     global opponents
     opponents = []
@@ -411,11 +403,15 @@ def init_game():
 
 
 def update_game():
+    global player
+    global opponents
     global game_state_crashed
     global game_state_running
+    global ui_state_mode
     if game_state_crashed:
-        global ui_state_mode
-        if ui_state_mode == 3:
+        if ui_state_mode == 2:
+            init_game()
+        elif ui_state_mode == 3:
             init_game()
         else:
             game_state_running = False
@@ -426,12 +422,34 @@ def update_game():
             walls_state = (walls_state + 1) % 3
             # opponents
             move_opponents()
+            # model
+            global model
+            Model = model
+            if ui_state_mode == 2:
+                # Mode 2: Train NET with Reinforce Learning
+                global RL_ind
+                Model = RL_ind.model
+                # save state_now
+                state_now = np.zeros((1, 30))
+                for op in opponents:
+                    if op.y >= 0 and op.y < game_rows:
+                        state_now[0][op.y // car_height * 5 + op.x // car_width] = 1
+                state_now[0][player.y // car_height * 5 + player.x // car_width] = .5
+            elif ui_state_mode == 3:
+                # Mode 3: Train NET with Evolutive Population
+                global ES_ind
+                Model = ES_ind.model
             # player
-            move_player()
-            # reset data
-            global grid
-            grid = np.zeros(shape=(1, 30), dtype=float)
-            print("#-----------------------------------------------------------------#")
+            game_state_crashed = player.move(opponents, ui_state_mode, Model)
+            if ui_state_mode == 2:
+                # Mode 2: Train NET with Reinforce Learning
+                if game_state_crashed:
+                    reward = -1
+                else:
+                    reward = get_reward(state_now)
+                RL_ind.save_itaration(state_now, player.x, reward, False, False)
+                RL_ind.replay_train()
+            print("#----------------------------------------------------------#")
 
 
 def draw_game():
@@ -518,11 +536,14 @@ def draw_ui():
             modeUpButton.create_button(screen, (107, 142, 35), game_W + 90, 300, 65, 40, 0, ">", (255, 255, 255))
     # ES info
     global game_state_running
+    if ui_state_mode == 2 and game_state_running:
+        global RL_best_score
+        write_text(screen, "Best score:" + str(RL_best_score), (107, 142, 35), 150, 20, 20, game_H + 50)
     if ui_state_mode == 3 and game_state_running:
-        global ES_indiv
+        global ES_ind
         global ES_best_score
-        write_text(screen, "Gen: " + str(ES_indiv.generation), (107, 142, 35), 60, 20, 20, game_H + 10)
-        write_text(screen, "ID: " + str(ES_indiv.indiv_id), (107, 142, 35), 40, 20, 20, game_H + 30)
+        write_text(screen, "Gen: " + str(ES_ind.generation), (107, 142, 35), 60, 20, 20, game_H + 10)
+        write_text(screen, "ID: " + str(ES_ind.indiv_id), (107, 142, 35), 40, 20, 20, game_H + 30)
         write_text(screen, "Best score:" + str(ES_best_score), (107, 142, 35), 150, 20, 20, game_H + 50)
 
 

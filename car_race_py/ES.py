@@ -22,18 +22,23 @@ class ES_indiv:
         * model --> NET_model representation of ANN (see NET_model for more info)
         * indiv_id --> number to identificate indiv in generation
         * generation --> number for the generations witch the indiv belongs
+        * indiv_obj --> to attach some object to individual
     '''
-    def __init__(self, model, indiv_id, generation=1):
+    def __init__(self, model, indiv_id, generation=1, indiv_obj=None):
         self.fitness = 0
         self.model = model
         self.indiv_id = indiv_id
         self.generation = generation
         self.game_over = False
+        self.indiv_obj = indiv_obj
 
 
 class Population:
     '''
         # Create a new populations to evolve and train
+
+        Atributes:
+        * size --> size of the population
 
         Arguments:
             size: of the population

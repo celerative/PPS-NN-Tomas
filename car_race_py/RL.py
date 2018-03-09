@@ -2,13 +2,7 @@ import numpy as np
 import NET_model
 
 '''
-ES is a module to create populations of keras directional models.
-Allows to iterate over the population and evolve it when gets to the end.
-
-Works over 1 dim keras leyers, and perform crossover and mutatios on weights and bias from all layers.
-The model is get from NET_model module to abstract it's implamentation.
-
-Every individual is and ES_indiv instance, and has it's own fitness.
+RL is a module to
 
 '''
 
@@ -27,23 +21,25 @@ class RL_indiv:
             self.model = model
         self.activation = outcome_activation
         self.batch_size = batch_size
+        self.discount = discount
         self.history_size = history_size
         self.history = []
         self.game_over_state = game_over_state
         self.verbose = verbose
 
     def replay_train(self):
-        pass
+        train_x, train_y = self._get_batch()
+        self.model.train_on_batch(train_x, train_y)
 
     def save_itaration(self, state_now, action_index, reward, state_next, game_over=False):
         if self.game_over_state:
-            self.history.append(state_now, action_index, reward, state_next, game_over)
+            self.history.append([state_now, action_index, reward, state_next, game_over])
         else:
-            self.history.append(state_now, action_index, reward, state_next, False)
+            self.history.append([state_now, action_index, reward, state_next, False])
         if len(self.history) > self.history_size:
             del self.history[0]
 
-    def get_batch(self):
+    def _get_batch(self):
         len_history = len(self.history)
         train_size = (min(len_history, self.batch_size))
         train_x = np.zeros((train_size, self.model.input_shape))
@@ -52,8 +48,6 @@ class RL_indiv:
             for i, i_history in enumerate(np.random.randint(0, len_history, size=train_size)):
                 state_now, action_index, reward, state_next, game_over = self.history[i_history]
                 train_x[i] = state_now
-                # There should be no target values for actions not taken.
-                # Thou shalt not correct actions not taken #deep
                 train_y[i] = self.model.predict(state_now)[0]
                 Q_sa = np.max(self.model.predict(state_next)[0])
                 if game_over:  # if game_over is True
@@ -62,12 +56,15 @@ class RL_indiv:
                     # reward_t + gamma * max_a' Q(s', a')
                     train_y[i][action_index] = reward + self.discount * Q_sa
         elif self.activation == "softmax":
+            i = 0
             while len(train_x) < train_size:
                 state_now, action_index, reward, state_next, game_over = self.history[np.random.randint(0, len_history)]
                 if reward == 1:
+                    train_x[i] = state_now
                     if game_over:  # if game_over is True (with reward 1 the game ends on win)
                         train_y[i][action_index] = reward
                     else:
                         # the action taken was correct
                         train_y[i][action_index] = reward
+                    i += 1
         return train_x, train_y
