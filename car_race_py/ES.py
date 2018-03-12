@@ -50,7 +50,7 @@ class Population:
         self._population = []
         self._generation_index = 0
         self._indiv_index = 0
-        if seed is None:
+        if seed is None or len(seed) == 0:
             for indiv_id in range(size):
                 model = NET_model.NET_model(random_weights_and_bias=True)
                 self._population.append(ES_indiv(model, indiv_id))

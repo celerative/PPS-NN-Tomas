@@ -3,7 +3,7 @@ import numpy as np
 
 # el archivo data.json tiene almacenadas las pociciones de los oponentes en la
 # grilla con cientos de casos de ejemplo
-data_in = json.load(open('raw_data.json'))
+data_in = json.load(open('raw_supervised_training_data.json'))
 
 grid = np.zeros(shape=(6, 5), dtype=float, order='F')
 out = np.zeros(shape=(5, 1), dtype=float, order='F')
@@ -233,5 +233,12 @@ if len(data) >= 11000:
         print("Training data were save!")
     else:
         print("Training data were not save!")
+    save = input("Save model image on 'doc/model.png'? [Y/n]: ")
+    if save == 'y' or save == 'Y':
+        from keras.utils import plot_model
+        plot_model(model, to_file='doc/model.png', show_shapes=True)
+        print("Image saved!")
+    else:
+        print("Image didn't save!")
 else:
     print("less than 11000 valid data. Abort training!")

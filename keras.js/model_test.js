@@ -4,11 +4,16 @@ var pred_in = null;
 var pred_out = null;
 var model = null
 
+function getRandomInt(max) {
+  return Math.floor(Math.random() * Math.floor(max));
+}
+
 function initModel()
 {
-  //cargar modelo
+  //load model
   this.model = new KerasJS.Model({
-    filepath: 'car_race_model.bin',
+    //this model has an input shape of (1, 30) and an SOFTMAX output of (1, 5)
+    filepath: 'model.bin',
     filesystem: true,
     gpu: true
   })
@@ -17,7 +22,7 @@ function initModel()
 
 function testModel()
 {
-  //setear pred_in en 0
+  //create input with zeros
   this.pred_in = new Float32Array([ .0, .0, .0, .0, .0,
                                     .0, .0, .0, .0, .0,
                                     .0, .0, .0, .0, .0,
@@ -25,9 +30,11 @@ function testModel()
                                     .0, .0, .0, .0, .0,
                                     .0, .0, .0, .0, .0])
   this.pred_out = new Float32Array([.0, .0, .0, .0, .0])
-  //cargar pred_in con los enemigos y el jugador
-  //for (var i = 0; i < this.input_len ; i++) {
-  //  this.pred_in[i] =
+  //load same values to input
+  this.pred_in[getRandomInt(30)] = 1
+  this.pred_in[getRandomInt(30)] = 1
+  this.pred_in[getRandomInt(30)] = 1
+  this.pred_in[getRandomInt(30)] = 1
   const inputData = {
     input: this.pred_in
   }

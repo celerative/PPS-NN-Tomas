@@ -1,6 +1,7 @@
+from sys import argv
 import pygame as pg
 import numpy as np
-from reward import get_reward
+from car_race_RLreward import get_reward
 import Buttons
 import NET_model
 import ES
@@ -41,9 +42,12 @@ Mode 3: Train NET with Evolutive Population
 '''
 
 # NET
+if len(argv) < 2:  # load path from args
+    model_path = "./pre_train_models/NET_model.h5"
+else:
+    model_path = argv[1]
+print("Using model: '" + model_path + "'")
 model = None
-model_path_1 = "NET_model_1.h5"
-model_path_2 = "NET_model_2.h5"
 model_pred_enable = False
 
 # ES
@@ -57,6 +61,8 @@ ES_best_score = 0
 # RL
 RL_ind = None
 RL_best_score = 0
+RL_games_played = 0
+
 
 # game vars
 game_cols = 21
@@ -193,38 +199,47 @@ class Player:
         self.next_x = np.argmax(pred[0]) * car_width
 
 
+def load_model_file(model_path):
+    try:
+        model = NET_model.NET_model()
+        model.load_model(model_path)
+        return model
+    except Exception as e:
+        print("Model not found: " + model_path)
+        exit()
+
+
 def init_NET(model_path):
     global model
-    model = NET_model.NET_model()
-    model.load_model(model_path)
+    model = load_model_file(model_path)
 
 
 def init_ES():
     global ES_population_size
     global ES_seed
-    model = NET_model.NET_model()
-    model.load_model("./ES_models_0/ES_gen03_fit355.h5")
-    ES_seed.append(ES.ES_indiv(model, 0))
+    i = 0
+    model = load_model_file("./pre_train_models/ES_gen03_fit355.h5")
+    ES_seed.append(ES.ES_indiv(model, i))
+    i += 1
 
-    model = NET_model.NET_model()
-    model.load_model("./ES_models_0/ES_gen08_fit367.h5")
-    ES_seed.append(ES.ES_indiv(model, 1))
+    model = load_model_file("./pre_train_models/ES_gen08_fit367.h5")
+    ES_seed.append(ES.ES_indiv(model, i))
+    i += 1
 
-    model = NET_model.NET_model()
-    model.load_model("./ES_models_1/ES_gen02_fit566.h5")
-    ES_seed.append(ES.ES_indiv(model, 2))
+    model = load_model_file("./pre_train_models/ES_gen02_fit566.h5")
+    ES_seed.append(ES.ES_indiv(model, i))
+    i += 1
 
-    model = NET_model.NET_model()
-    model.load_model("./ES_models_1/ES_gen04_fit340.h5")
-    ES_seed.append(ES.ES_indiv(model, 3))
+    model = load_model_file("./pre_train_models/ES_gen04_fit340.h5")
+    ES_seed.append(ES.ES_indiv(model, i))
+    i += 1
 
-    model = NET_model.NET_model()
-    model.load_model("./ES_models_1/ES_gen10_fit588.h5")
-    ES_seed.append(ES.ES_indiv(model, 4))
+    model = load_model_file("./pre_train_models/ES_gen10_fit588.h5")
+    ES_seed.append(ES.ES_indiv(model, i))
+    i += 1
 
-    model = NET_model.NET_model()
-    model.load_model("./ES_models_1/ES_gen11_fit323.h5")
-    ES_seed.append(ES.ES_indiv(model, 5))
+    model = load_model_file("./pre_train_models/ES_gen11_fit323.h5")
+    ES_seed.append(ES.ES_indiv(model, i))
 
     global ES_best_score
     ES_best_score = 0
@@ -239,10 +254,9 @@ def init_ES():
 
 def init_RL(reset_RL=False):
     if RL_ind is None or reset_RL:
-        model = NET_model.NET_model()
-        model.load_model(model_path_1)
+        model = load_model_file(model_path)
         global RL_ind
-        RL_ind = RL.RL_indiv(model, outcome_activation="softmax", batch_size=50, history_size=200, game_over_state=False)
+        RL_ind = RL.RL_indiv(model, outcome_activation="relu", batch_size=50, history_size=200, game_over_state=False)
         global RL_best_score
         RL_best_score = 0
 
@@ -349,7 +363,7 @@ def init_game():
     global ui_state_mode
     # Mode 1: Run Trained NET
     if ui_state_mode == 1:
-        init_NET(model_path_1)
+        init_NET(model_path)
     # Mode 2: Train NET with Reinforce Learning
     elif ui_state_mode == 2:
         global RL_best_score
@@ -411,6 +425,8 @@ def update_game():
     if game_state_crashed:
         if ui_state_mode == 2:
             init_game()
+            global RL_games_played
+            RL_games_played += 1
         elif ui_state_mode == 3:
             init_game()
         else:
@@ -443,11 +459,19 @@ def update_game():
             game_state_crashed = player.move(opponents, ui_state_mode, Model)
             if ui_state_mode == 2:
                 # Mode 2: Train NET with Reinforce Learning
+                # save state_next
+                state_next = np.zeros((1, 30))
+                for op in opponents:
+                    if op.y >= 0 and op.y < game_rows:
+                        state_next[0][op.y // car_height * 5 + op.x // car_width] = 1
+                state_next[0][player.y // car_height * 5 + player.x // car_width] = .5
                 if game_state_crashed:
                     reward = -1
                 else:
-                    reward = get_reward(state_now)
-                RL_ind.save_itaration(state_now, player.x, reward, False, False)
+                    reward = get_reward(state_next)
+                    if reward == -1:
+                        game_state_crashed = True
+                RL_ind.save_itaration(state_now, player.x // car_width, reward, state_next, False)
                 RL_ind.replay_train()
             print("#----------------------------------------------------------#")
 
@@ -537,6 +561,8 @@ def draw_ui():
     # ES info
     global game_state_running
     if ui_state_mode == 2 and game_state_running:
+        global RL_games_played
+        write_text(screen, "Game: " + str(RL_games_played), (107, 142, 35), 80, 20, 20, game_H + 10)
         global RL_best_score
         write_text(screen, "Best score:" + str(RL_best_score), (107, 142, 35), 150, 20, 20, game_H + 50)
     if ui_state_mode == 3 and game_state_running:

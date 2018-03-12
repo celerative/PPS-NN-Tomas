@@ -1,10 +1,7 @@
-# -*- coding: cp1252 -*-
-# /usr/bin/env python
 # Simon H. Larsen
 # Buttons
 # Project startet: d. 26. august 2012
 import pygame
-# from pygame.locals import *
 pygame.init()
 
 
