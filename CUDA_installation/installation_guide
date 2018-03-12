@@ -33,6 +33,8 @@ nvidia-smi
 # go to website and download CUDA Toolkit 9.0 (Sept 2017)
 # Linux -> x86_64 -> Ubutnu -> 16.04 -> runfile(local) -> BaseInstaller
 # https://developer.nvidia.com/cuda-toolkit-archive
+# make the installer executable
+chmod 764 cuda_9.0.176_384.81_linux.run
 # run and follow the command-line prompts (read below)
 sudo ./cuda_9.0.176_384.81_linux.run
 
@@ -42,11 +44,11 @@ sudo ./cuda_9.0.176_384.81_linux.run
 #Install NVIDIA Accelerated Graphics Driver for Linux-x86_64 367.48?
 #n (we installed drivers previously)
 #
-#Install the CUDA 8.0 Toolkit?
+#Install the CUDA 9.0 Toolkit?
 #y
 #
 #Enter Toolkit Location:
-#/usr/local/cuda-8.0 (enter)
+#/usr/local/cuda-9.0 (enter)
 #
 #Do you wish to run the installation with ‚sudo’?
 #y
@@ -55,7 +57,7 @@ sudo ./cuda_9.0.176_384.81_linux.run
 #y
 #
 #Install the CUDA 8.0 Samples?
-#y
+#n
 #
 #Enter CUDA Samples Location:
 #enter
@@ -85,7 +87,7 @@ echo "  LD_LIBRARY_PATH=$LD_LIBRARY_PATH:/usr/local/cuda/lib64:/usr/local/cuda/l
 echo "fi" >> ~/.bashrc
 echo "export LD_LIBRARY_PATH" >> ~/.bashrc
 
-
+# close console or reload it to refresh the PATH
 # check if CUDA was installed propertly
 nvcc -V
 
@@ -127,8 +129,15 @@ $ python
 >>> y = tf.constant(1)
 >>> print(tf_session.run(x + y))
 >>> exit()
-
-# if tensorflow throw error like "can't import CUDA library libcublas.so.9.0" is because your installed version of CUDA don't mach with the tensorflow's version (exaple: if you have CUDA 8 library should be libcublas.so.8.0).
+'''
+import tensorflow as tf
+tf_session = tf.Session()
+x = tf.constant(1)
+y = tf.constant(1)
+print(tf_session.run(x + y))
+exit()
+'''
+# if tensorflow throw error like "can't import CUDA library libcublas.so.9.0" is because your installed version of CUDA don't mach with the tensorflow's version (exaple: if you have CUDA 8 library should be libcublas.so.8.0). (or see Common errors below)
 # to solve this you have to reinstall the required version of CUDA and cuDNN (don't need to reinstall tenorflow)
 
 
@@ -148,6 +157,6 @@ nvidia-smi
 
 # Common errors:
 # Miss match Tensorflow version with CUDA version
-# Don't find CUDA libs because CUDA weren't added to user's PATH
+# Don't find CUDA libs because CUDA weren't added to user's PATH or you forgot to reboot the console
 # Don't setup the environment or forget to enter with 'source tfenv/bin/activate'
 # Use python2 instead of python3
