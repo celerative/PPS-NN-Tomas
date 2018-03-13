@@ -218,27 +218,7 @@ def init_ES():
     global ES_population_size
     global ES_seed
     i = 0
-    model = load_model_file("./pre_train_models/ES_gen03_fit355.h5")
-    ES_seed.append(ES.ES_indiv(model, i))
-    i += 1
-
-    model = load_model_file("./pre_train_models/ES_gen08_fit367.h5")
-    ES_seed.append(ES.ES_indiv(model, i))
-    i += 1
-
-    model = load_model_file("./pre_train_models/ES_gen02_fit566.h5")
-    ES_seed.append(ES.ES_indiv(model, i))
-    i += 1
-
-    model = load_model_file("./pre_train_models/ES_gen04_fit340.h5")
-    ES_seed.append(ES.ES_indiv(model, i))
-    i += 1
-
-    model = load_model_file("./pre_train_models/ES_gen10_fit588.h5")
-    ES_seed.append(ES.ES_indiv(model, i))
-    i += 1
-
-    model = load_model_file("./pre_train_models/ES_gen11_fit323.h5")
+    model = load_model_file(model_path)
     ES_seed.append(ES.ES_indiv(model, i))
 
     global ES_best_score
@@ -256,7 +236,7 @@ def init_RL(reset_RL=False):
     if RL_ind is None or reset_RL:
         model = load_model_file(model_path)
         global RL_ind
-        RL_ind = RL.RL_indiv(model, outcome_activation="relu", batch_size=50, history_size=200, game_over_state=False)
+        RL_ind = RL.RL_indiv(model, outcome_activation="softmax", batch_size=50, history_size=200, game_over_state=False)
         global RL_best_score
         RL_best_score = 0
 

@@ -139,7 +139,7 @@ class Population:
         self._population.sort(key=lambda fit: fit.fitness, reverse=True)
         #####################
         # save best model
-        self._population[0].model.save_model("ES_models/ES_gen{:0>2}_fit{:0>3}.h5".format(self._population[0].generation, self._population[0].fitness))
+        self._population[0].model.save_model("save_models/ES_gen{:0>2}_fit{:0>3}.h5".format(self._population[0].generation, self._population[0].fitness))
         #####################
         # selection
         # 25% from original sorted by fitness population

@@ -23,9 +23,22 @@ class NET_model:
             _kernel_initializer = 'glorot_uniform'
             _bias_initializer = 'glorot_uniform'
         # Architecture of ANN can be modify here adding or removing Denses
-        self.model.add(Dense(15, activation='relu', kernel_initializer=_kernel_initializer, bias_initializer=_bias_initializer, input_dim=input_shape))
-        self.model.add(Dense(10, activation='tanh', kernel_initializer=_kernel_initializer, bias_initializer=_bias_initializer))
-        self.model.add(Dense(output_shape, activation='sigmoid', kernel_initializer=_kernel_initializer, bias_initializer=_bias_initializer))
+        self.model.add(Dense(512, activation='relu', kernel_initializer=_kernel_initializer, bias_initializer=_bias_initializer, input_dim=input_shape))
+        self.model.add(Dense(256, activation='tanh', kernel_initializer=_kernel_initializer, bias_initializer=_bias_initializer))
+        self.model.add(Dense(256, activation='tanh', kernel_initializer=_kernel_initializer, bias_initializer=_bias_initializer))
+        self.model.add(Dense(256, activation='tanh', kernel_initializer=_kernel_initializer, bias_initializer=_bias_initializer))
+        self.model.add(Dense(256, activation='tanh', kernel_initializer=_kernel_initializer, bias_initializer=_bias_initializer))
+        self.model.add(Dense(256, activation='tanh', kernel_initializer=_kernel_initializer, bias_initializer=_bias_initializer))
+        self.model.add(Dense(256, activation='tanh', kernel_initializer=_kernel_initializer, bias_initializer=_bias_initializer))
+        self.model.add(Dense(256, activation='tanh', kernel_initializer=_kernel_initializer, bias_initializer=_bias_initializer))
+        self.model.add(Dense(256, activation='tanh', kernel_initializer=_kernel_initializer, bias_initializer=_bias_initializer))
+        self.model.add(Dense(256, activation='tanh', kernel_initializer=_kernel_initializer, bias_initializer=_bias_initializer))
+        self.model.add(Dense(256, activation='tanh', kernel_initializer=_kernel_initializer, bias_initializer=_bias_initializer))
+        self.model.add(Dense(256, activation='tanh', kernel_initializer=_kernel_initializer, bias_initializer=_bias_initializer))
+        self.model.add(Dense(256, activation='tanh', kernel_initializer=_kernel_initializer, bias_initializer=_bias_initializer))
+        self.model.add(Dense(256, activation='tanh', kernel_initializer=_kernel_initializer, bias_initializer=_bias_initializer))
+        self.model.add(Dense(128, activation='tanh', kernel_initializer=_kernel_initializer, bias_initializer=_bias_initializer))
+        self.model.add(Dense(output_shape, activation='softmax', kernel_initializer=_kernel_initializer, bias_initializer=_bias_initializer))
         self._compiled = False
 
     def compile(self):

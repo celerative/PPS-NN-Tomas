@@ -180,8 +180,8 @@ while 0 == 0:
         print(data[q])
         print(data_path[q])
 
-x_train = np.empty(shape=(10000, 30), dtype=float)
-y_train = np.empty(shape=(10000, 5), dtype=float)
+x_train = np.zeros(shape=(12000, 30), dtype=float)
+y_train = np.zeros(shape=(12000, 5), dtype=float)
 x_test = np.empty(shape=(1000, 30), dtype=float)
 y_test = np.empty(shape=(1000, 5), dtype=float)
 x_predict = np.empty(shape=(1, 30), dtype=float)
@@ -202,6 +202,40 @@ if len(data) >= 11000:
     for i in range(6):
         for j in range(5):
             x_predict[0][i * 5 + j] = data[x][0][i][j]
+
+    # add specific training data
+    for i in range(10000, 10500):
+        x_train[i][4 * 5 + 0] = 1
+        x_train[i][3 * 5 + 1] = 1
+        x_train[i][4 * 5 + 2] = 1
+        x_train[i][np.random.randint(3) * 5 + np.random.randint(2)] = 1
+        x_train[i][np.random.randint(3) * 5 + np.random.randint(3, 5)] = 1
+        x_train[i][5 * np.random.randint(3)] = .5
+        y_train[i][3] = 1
+    for i in range(10500, 11000):
+        x_train[i][4 * 5 + 2] = 1
+        x_train[i][3 * 5 + 3] = 1
+        x_train[i][4 * 5 + 4] = 1
+        x_train[i][np.random.randint(3) * 5 + np.random.randint(2)] = 1
+        x_train[i][np.random.randint(3) * 5 + np.random.randint(3, 5)] = 1
+        x_train[i][5 * np.random.randint(2, 5)] = .5
+        y_train[i][1] = 1
+    for i in range(11000, 11500):
+        x_train[i][1 * 5 + 0] = 1
+        x_train[i][2 * 5 + 1] = 1
+        x_train[i][3 * 5 + 2] = 1
+        x_train[i][4 * 5 + 3] = 1
+        x_train[i][np.random.randint(3, 5) * 5 + np.random.randint(2)] = 1
+        x_train[i][5 * np.random.randint(4)] = .5
+        y_train[i][4] = 1
+    for i in range(11500, 12000):
+        x_train[i][1 * 5 + 4] = 1
+        x_train[i][2 * 5 + 3] = 1
+        x_train[i][3 * 5 + 2] = 1
+        x_train[i][4 * 5 + 1] = 1
+        x_train[i][np.random.randint(3, 5) * 5 + np.random.randint(3, 5)] = 1
+        x_train[i][5 * np.random.randint(1, 5)] = .5
+        y_train[i][0] = 1
 
     import NET_model
     model = NET_model.NET_model()
@@ -224,7 +258,7 @@ if len(data) >= 11000:
     print("Expected results:")
     print("[{} , {} , {} , {} , {} ]"
           .format(*data[x][1]))
-    model.save_model('NET_model.h5')
+    model.save_model('pre_train_models/NET_model.h5')
     data_final = [(10000, x_train), (10000, y_train), (1000, x_test),
                   (1000, y_test), (1, x_predict)]
     save = input("Save training data? [Y/n]: ")
