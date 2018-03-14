@@ -107,9 +107,6 @@ ui_state_mode_string = ["Manual", "UseNET", "TrainRL", "TrainES"]
 
 # timing
 clock = pg.time.Clock()
-FPS = 60
-FPS_default = 60
-freq_count = 0
 
 
 class Position:
@@ -392,8 +389,6 @@ def init_game():
     game_state_score = 0
     global game_state_crashed
     game_state_crashed = False
-    global freq_count
-    freq_count = 0
 
 
 def update_game():
@@ -505,9 +500,6 @@ def update_ui():
         ui_state_playButton = "Play"
     else:
         ui_state_playButton = "Stop"
-    global FPS
-    global ui_state_speed
-    FPS = ui_state_speed
 
 
 def draw_ui():
@@ -582,25 +574,11 @@ while not done:
                 if modeDownButton.pressed(pg.mouse.get_pos()):
                     if ui_state_mode > 0:
                         ui_state_mode -= 1
-    # stablish frequecies relation (FPS and speed)
-    if ui_state_speed < FPS:
-        FPS = FPS_default
-        freq_count += 1
-        if ui_state_speed == freq_count % ui_state_speed:
-            game_refresh = True
-        if freq_count >= FPS_default:
-            if ui_state_speed / FPS > .5:
-                game_refresh = True
-            freq_count = 0
-    else:
-        FPS = ui_state_speed
-        game_refresh = True
     if game_refresh:
         update_game()
-        game_refresh = False
     if ui_refresh:
         update_ui()
     draw_game()
     draw_ui()
     pg.display.flip()
-    clock.tick(FPS)
+    clock.tick(ui_state_speed)
