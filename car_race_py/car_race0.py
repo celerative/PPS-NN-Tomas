@@ -41,28 +41,6 @@ Mode 3: Train NET with Evolutive Population
 
 '''
 
-# NET
-if len(argv) < 2:  # load path from args
-    model_path = "./pre_train_models/NET_model.h5"
-else:
-    model_path = argv[1]
-print("Using model: '" + model_path + "'")
-model = None
-model_pred_enable = False
-
-# ES
-ES_population_size = 10
-ES_population = None
-ES_ind = None
-ES_is_running = False
-ES_seed = []
-ES_best_score = 0
-
-# RL
-RL_ind = None
-RL_best_score = 0
-RL_games_played = 0
-
 # timing
 clock = pg.time.Clock()
 
@@ -77,9 +55,10 @@ class Player:
     def __init__(self, x, y):
         self.x = x
         self.y = y
-        self._last_x = -1
+        self.last_x = -1
         self._next_x = -1
         self.score = 0
+        self.dead = False
 
     def move(self, opponents, mode, Model):
         board = np.zeros((1, 30))
@@ -111,7 +90,7 @@ class Player:
             self._network(board, Model)
             multi_steps = True
         #####################
-        self._last_x = self.x
+        self.last_x = self.x
         crashed = self.check_crash(opponents)
         if not crashed:
             if multi_steps:
@@ -135,9 +114,66 @@ class Player:
         # if crash, return False
         return crashed
 
-    def check_crash(self, opponents):
+        def try_move(self, opponents, mode, Model):
+            board = np.zeros((1, 30))
+            move_enable = False
+            for op in opponents:
+                if op.y >= 0 and op.y < CarRaceGame.game_rows:
+                    if op.y % CarRaceGame.car_height == 0:
+                        move_enable = True
+                    board[0][op.y // CarRaceGame.car_height * 5 + op.x // CarRaceGame.car_width] = 1
+            self._next_x = self.x
+            board[0][self.y // CarRaceGame.car_height * 5 + self.x // CarRaceGame.car_width] = .5
+            if mode == 0:
+                # Mode 0: Manual game
+                self._manual()
+                multi_steps = False
+            elif mode == 2:
+                # Mode 2: Train NET with Reinforce Learning
+                # if np.random.random() > 0.95:  # percentage to take random action
+                if False:  # force to predict action
+                    if move_enable:
+                        self._next_x = np.random.randint(5) * CarRaceGame.car_width
+                        print("RANDOM")
+                else:
+                    self._network(board, Model)
+                multi_steps = True
+            else:
+                # Mode 1: Run Trained NET
+                # Mode 3: Train NET with Evolutive Population
+                self._network(board, Model)
+                multi_steps = True
+            #####################
+            last_x = self.x
+            x = self.x
+            crashed = self.check_crash(opponents)
+            if not crashed:
+                if multi_steps:
+                    while self._next_x != self.x:
+                        if self._next_x < self.x:
+                            x -= CarRaceGame.car_width
+                            print("<--")
+                        else:
+                            x += CarRaceGame.car_width
+                            print("-->")
+                        crashed = self.check_crash(opponents, x)
+                        if crashed:
+                            break
+                else:
+                    if self._next_x < x:
+                        print("<--")
+                    elif self._next_x > x:
+                        print("-->")
+                    x = self._next_x
+                    crashed = self.check_crash(opponents, x)
+            # if crash, return False
+            return crashed, x, last_x
+
+    def check_crash(self, opponents, x=None):
+        if x is None:
+            x = self.x
         for op in opponents:
-            if np.absolute(op.x - self.x) < CarRaceGame.car_width and np.absolute(op.y - self.y) < CarRaceGame.car_height:
+            if np.absolute(op.x - x) < CarRaceGame.car_width and np.absolute(op.y - self.y) < CarRaceGame.car_height:
                 return True
         return False
 
@@ -165,7 +201,7 @@ class CarRaceGame:
     car_width = 3
     car_height = 4
 
-    def __init__(self):
+    def __init__(self, model_path="./pre_train_models/NET_model.h5"):
         # game vars
         self._grid_line_W = 2
         self._walls_state = 0  # 0, 1 or 2
@@ -186,6 +222,24 @@ class CarRaceGame:
         self.game_state_score = 0
         self.game_state_crashed = False
         self.game_state_running = False
+
+        # NET
+        print("Using model: '" + model_path + "'")
+        self.model_path = model_path
+        self.model = None
+
+        # ES
+        self.ES_population_size = 10
+        self.ES_population = None
+        self.ES_ind = None
+        self.ES_is_running = False
+        self.ES_seed = []
+        self.ES_best_score = 0
+
+        # RL
+        self.RL_ind = None
+        self.RL_best_score = 0
+        self.RL_games_played = 0
 
         # init game
         self.init_game()
@@ -236,7 +290,7 @@ class CarRaceGame:
                 aux_grid[0][(op.y + CarRaceGame.game_rows) // CarRaceGame.car_height * 5 + op.x // CarRaceGame.car_width] = 1
         while get_reward(aux_grid) == -1:
             ###
-            # delete diagonal self.opponents
+            # delete diagonal opponents
             index = np.random.randint(0, len(self.opponents))
             if self.opponents[index].y < 0:
                 self.opponents[index].y -= CarRaceGame.car_height * 2
@@ -260,6 +314,7 @@ class CarRaceGame:
             if deadlock > 10:
                 print("Deadlock unsolve")
                 self.game_state_crashed = True
+                self.player.dead = True
                 break
             deadlock += 1
             for i in range(len(self.opponents) - 1):
@@ -273,87 +328,87 @@ class CarRaceGame:
                         self.opponents[j].y -= CarRaceGame.car_height
 
     def init_game(self):
-        pg.draw.rect(screen, self.game_color_bg, pg.Rect(0, 0, CarRaceGame.game_W, CarRaceGame.game_H))
+        pg.draw.rect(screen, self._game_color_bg, pg.Rect(0, 0, CarRaceGame.game_W, CarRaceGame.game_H))
         self.draw_grid()
         self.draw_walls()
         # set mode
         # Mode 1: Run Trained NET
-        if ui_state_mode == 1:
-            init_NET(model_path)
+        if CarRaceUI.ui_state_mode == 1:
+            self.init_NET(self.model_path)
         # Mode 2: Train NET with Reinforce Learning
-        elif ui_state_mode == 2:
-            RL_best_score
-            if game_state_score > RL_best_score:
-                RL_best_score = self.game_state_score
-            init_RL()
-        # Mode 3: Train NET with Evolutive Population
-        elif ui_state_mode == 3:
-            ES_is_running
-            if ES_is_running:
-                if self._game_state_score > ES_best_score:
-                    ES_best_score = self.game_state_score
-                ES_ind.fitness = self.game_state_score
-                ES_population
-                ES_ind = ES_population.get_next_indiv()
+        elif CarRaceUI.ui_state_mode == 2:
+                if self.game_state_score > self.RL_best_score:
+                    self.RL_best_score = self.game_state_score
+                self.init_RL()
+            # Mode 3: Train NET with Evolutive Population
+        elif CarRaceUI.ui_state_mode == 3:
+            if self.ES_is_running:
+                if self.game_state_score > self.ES_best_score:
+                    self.ES_best_score = self.game_state_score
+                self.ES_ind.fitness = self.game_state_score
+                self.ES_ind = self.ES_population.get_next_indiv()
             else:
-                ES_is_running = True
-                init_ES()
+                self.ES_is_running = True
+                self.init_ES()
         # player
-        player = Player(2 * CarRaceGame.car_width, 5 * CarRaceGame.car_height)
-        self.draw_car(player.x, player.y, self._game_color_player)
+        self.player = Player(2 * CarRaceGame.car_width, 5 * CarRaceGame.car_height)
+        self.draw_car(self.player.x, self.player.y, self._game_color_player)
         # opponents
-        opponents = []
+        self.opponents = []
         # if opponents are located completely random, could cause deadlock
         # for i in range(opponents_number):
         #     opponents.append(Position(np.random.randint(4) * CarRaceGame.car_width, -CarRaceGame.car_height * np.random.randint(1, i + 2)))
         # to solve initial deadlock, positions are not fully random
-        opponents.append(Position(0 * CarRaceGame.car_width, -CarRaceGame.car_height * np.random.randint(1, 3)))
-        opponents.append(Position(0 * CarRaceGame.car_width, -CarRaceGame.car_height * np.random.randint(3, 5)))
-        opponents.append(Position(2 * CarRaceGame.car_width, -CarRaceGame.car_height * np.random.randint(1, 3)))
-        opponents.append(Position(2 * CarRaceGame.car_width, -CarRaceGame.car_height * np.random.randint(3, 5)))
-        opponents.append(Position(4 * CarRaceGame.car_width, -CarRaceGame.car_height * np.random.randint(1, 3)))
-        opponents.append(Position(4 * CarRaceGame.car_width, -CarRaceGame.car_height * np.random.randint(3, 5)))
+        self.opponents.append(Position(0 * CarRaceGame.car_width, -CarRaceGame.car_height * np.random.randint(1, 3)))
+        self.opponents.append(Position(0 * CarRaceGame.car_width, -CarRaceGame.car_height * np.random.randint(3, 5)))
+        self.opponents.append(Position(2 * CarRaceGame.car_width, -CarRaceGame.car_height * np.random.randint(1, 3)))
+        self.opponents.append(Position(2 * CarRaceGame.car_width, -CarRaceGame.car_height * np.random.randint(3, 5)))
+        self.opponents.append(Position(4 * CarRaceGame.car_width, -CarRaceGame.car_height * np.random.randint(1, 3)))
+        self.opponents.append(Position(4 * CarRaceGame.car_width, -CarRaceGame.car_height * np.random.randint(3, 5)))
         # game_state_vars
         self.game_state_score = 0
-        self.game_state_crashed
+        self.player.score += 1
         self.game_state_crashed = False
+        self.player.dead = False
 
     def update_game(self):
         if self.game_state_crashed:
-            if ui_state_mode == 2:
+            if CarRaceUI.ui_state_mode == 2:
                 self.init_game()
-                RL_games_played += 1
-            elif ui_state_mode == 3:
+                self.RL_games_played += 1
+            elif CarRaceUI.ui_state_mode == 3:
                 self.init_game()
             else:
-                game_state_running = False
+                self.game_state_running = False
         else:
-            if game_state_running:
+            if self.game_state_running:
                 # walls
                 self._walls_state
                 self._walls_state = (self._walls_state + 1) % 3
                 # opponents
                 self.move_opponents()
                 # model
-                model
-                Model = model
-                if ui_state_mode == 2:
+                Model = self.model
+                if CarRaceUI.ui_state_mode == 2:
                     # Mode 2: Train NET with Reinforce Learning
-                    RL_ind
-                    Model = RL_ind.model
+                    Model = self.RL_ind.model
                     # save state_now
                     state_now = np.zeros((1, 30))
                     for op in self.opponents:
                         if op.y >= 0 and op.y < CarRaceGame.game_rows:
                             state_now[0][op.y // CarRaceGame.car_height * 5 + op.x // CarRaceGame.car_width] = 1
                     state_now[0][self.player.y // CarRaceGame.car_height * 5 + self.player.x // CarRaceGame.car_width] = .5
-                elif ui_state_mode == 3:
+                elif CarRaceUI.ui_state_mode == 3:
                     # Mode 3: Train NET with Evolutive Population
-                    ES_ind
-                    Model = ES_ind.model
+                    Model = self.ES_ind.model
                 # player
-                game_state_crashed = self.player.move(self.opponents, ui_state_mode, Model)
-                if ui_state_mode == 2:
+                game_state_crashed = self.player.move(self.opponents, CarRaceUI.ui_state_mode, Model)
+                crash, x = self.player.try_move(self.opponents, CarRaceUI.ui_state_mode, Model)
+                if not crash and self.player.x != x:
+                    self.player.last_x = self.player.x
+                    self.player.x = x
+                    print("TRYYYYYYYYYYYYYYYYYYYYYYYYY")
+                if CarRaceUI.ui_state_mode == 2:
                     # Mode 2: Train NET with Reinforce Learning
                     # save state_next
                     state_next = np.zeros((1, 30))
@@ -367,12 +422,12 @@ class CarRaceGame:
                         reward = get_reward(state_next)
                         if reward == -1:
                             game_state_crashed = True
-                    RL_ind.save_itaration(state_now, self.player.x // CarRaceGame.car_width, reward, state_next, False)
-                    RL_ind.replay_train()
+                    self.RL_ind.save_itaration(state_now, self.player.x // CarRaceGame.car_width, reward, state_next, False)
+                    self.RL_ind.replay_train()
                 print("#----------------------------------------------------------#")
 
     def draw_game(self):
-        pg.draw.rect(screen, self.game_color_bg, pg.Rect(0, 0, CarRaceGame.game_W, CarRaceGame.game_H))
+        pg.draw.rect(screen, self._game_color_bg, pg.Rect(0, 0, CarRaceGame.game_W, CarRaceGame.game_H))
         self.draw_grid()
         self.draw_walls()
         # player
@@ -382,50 +437,39 @@ class CarRaceGame:
             if op.x >= 0:
                 self.draw_car(op.x, op.y, self._game_color_opponent)
 
+    def load_model_file(self, model_path):
+        try:
+            self.model = NET_model.NET_model()
+            self.model.load_model(self.model_path)
+        except Exception as e:
+            print("Model not found: " + self.model_path)
+            exit()
 
-def load_model_file(model_path):
-    try:
-        model = NET_model.NET_model()
-        model.load_model(model_path)
-        return model
-    except Exception as e:
-        print("Model not found: " + model_path)
-        exit()
+    def init_NET(self, model_path):
+        self.model = self.load_model_file(self.model_path)
 
+    def init_ES(self):
+        i = 0
+        self.model = self.load_model_file(self.model_path)
+        self.ES_seed.append(ES.ES_indiv(self.model, i))
 
-def init_NET(model_path):
-    global model
-    model = load_model_file(model_path)
+        self.ES_best_score = 0
+        self.ES_population = ES.Population(self.ES_population_size, self.ES_seed, True)
+        for ind in range(self.ES_population_size):
+            indiv = self.ES_population.get_indiv(ind)
+            indiv.indiv_obj = Player(2 * CarRaceGame.car_width, 5 * CarRaceGame.car_height)
+        self.ES_ind = self.ES_population.get_next_indiv()
 
-
-def init_ES():
-    global ES_population_size
-    global ES_seed
-    i = 0
-    model = load_model_file(model_path)
-    ES_seed.append(ES.ES_indiv(model, i))
-
-    global ES_best_score
-    ES_best_score = 0
-    global ES_population
-    ES_population = ES.Population(ES_population_size, ES_seed, True)
-    for ind in range(ES_population_size):
-        indiv = ES_population.get_indiv(ind)
-        indiv.indiv_obj = Player(2 * CarRaceGame.car_width, 5 * CarRaceGame.car_height)
-    global ES_ind
-    ES_ind = ES_population.get_next_indiv()
-
-
-def init_RL(reset_RL=False):
-    if RL_ind is None or reset_RL:
-        model = load_model_file(model_path)
-        global RL_ind
-        RL_ind = RL.RL_indiv(model, outcome_activation="softmax", batch_size=50, history_size=200, game_over_state=False)
-        global RL_best_score
-        RL_best_score = 0
+    def init_RL(self, reset_RL=False):
+        if self.RL_ind is None or reset_RL:
+            self.model = self.load_model_file(self.model_path)
+            self.RL_ind = RL.RL_indiv(self.model, outcome_activation="softmax", batch_size=50, history_size=200, game_over_state=False)
+            self.RL_best_score = 0
 
 
 class CarRaceUI():
+
+    ui_state_mode = 0
 
     def __init__(self, CarRace_game):
         # ui vars
@@ -439,7 +483,6 @@ class CarRaceUI():
         # ui states
         self.ui_state_playButton = "Play"
         self.ui_state_speed = 10
-        self.ui_state_mode = 0
         self.ui_state_mode_string = ["Manual", "UseNET", "TrainRL", "TrainES"]
 
         # init UI
@@ -484,23 +527,27 @@ class CarRaceUI():
         self.speedUpButton.create_button(screen, (107, 142, 35), CarRaceGame.game_W + 90, 180, 65, 40, 0, ">", (255, 255, 255))
         # mode
         self.write_text(screen, "Mode: ", (107, 142, 35), 120, 30, CarRaceGame.game_W + 20, 240)
-        self.write_text(screen, self.ui_state_mode_string[self.ui_state_mode], (107, 142, 35), 80, 10, CarRaceGame.game_W + 50, 275)
+        self.write_text(screen, self.ui_state_mode_string[CarRaceUI.ui_state_mode], (107, 142, 35), 80, 10, CarRaceGame.game_W + 50, 275)
         if not self._game.game_state_running:
-            if self.ui_state_mode > 0:
+            if CarRaceUI.ui_state_mode > 0:
                 self.modeDownButton.create_button(screen, (107, 142, 35), CarRaceGame.game_W + 10, 300, 65, 40, 0, "<", (255, 255, 255))
-            if self.ui_state_mode < 3:
+            if CarRaceUI.ui_state_mode < 3:
                 self.modeUpButton.create_button(screen, (107, 142, 35), CarRaceGame.game_W + 90, 300, 65, 40, 0, ">", (255, 255, 255))
         # ES info
-        if self.ui_state_mode == 2 and self._game.game_state_running:
-            self.write_text(screen, "Game: " + str(RL_games_played), (107, 142, 35), 80, 20, 20, CarRaceGame.game_H + 10)
-            self.write_text(screen, "Best score:" + str(RL_best_score), (107, 142, 35), 150, 20, 20, CarRaceGame.game_H + 50)
-        if self.ui_state_mode == 3 and self._game.game_state_running:
-            self.write_text(screen, "Gen: " + str(ES_ind.generation), (107, 142, 35), 60, 20, 20, CarRaceGame.game_H + 10)
-            self.write_text(screen, "ID: " + str(ES_ind.indiv_id), (107, 142, 35), 40, 20, 20, CarRaceGame.game_H + 30)
-            self.write_text(screen, "Best score:" + str(ES_best_score), (107, 142, 35), 150, 20, 20, CarRaceGame.game_H + 50)
+        if CarRaceUI.ui_state_mode == 2 and self._game.game_state_running:
+            self.write_text(screen, "Game: " + str(self._game.RL_games_played), (107, 142, 35), 80, 20, 20, CarRaceGame.game_H + 10)
+            self.write_text(screen, "Best score:" + str(self._game.RL_best_score), (107, 142, 35), 150, 20, 20, CarRaceGame.game_H + 50)
+        if CarRaceUI.ui_state_mode == 3 and self._game.game_state_running:
+            self.write_text(screen, "Gen: " + str(self._game.ES_ind.generation), (107, 142, 35), 60, 20, 20, CarRaceGame.game_H + 10)
+            self.write_text(screen, "ID: " + str(self._game.ES_ind.indiv_id), (107, 142, 35), 40, 20, 20, CarRaceGame.game_H + 30)
+            self.write_text(screen, "Best score:" + str(self._game.ES_best_score), (107, 142, 35), 150, 20, 20, CarRaceGame.game_H + 50)
 
 
-game = CarRaceGame()
+if len(argv) < 2:  # load path from args
+    game = CarRaceGame()
+else:
+    game = CarRaceGame(argv[1])
+
 ui = CarRaceUI(game)
 
 
@@ -525,11 +572,11 @@ while not done:
                     ui.ui_state_speed -= 1
             if not game.game_state_running:
                 if ui.modeUpButton.pressed(pg.mouse.get_pos()):
-                    if ui.ui_state_mode < 3:
-                        ui.ui_state_mode += 1
+                    if CarRaceUI.ui_state_mode < 3:
+                        CarRaceUI.ui_state_mode += 1
                 if ui.modeDownButton.pressed(pg.mouse.get_pos()):
-                    if ui.ui_state_mode > 0:
-                        ui.ui_state_mode -= 1
+                    if CarRaceUI.ui_state_mode > 0:
+                        CarRaceUI.ui_state_mode -= 1
     if game_refresh:
         game.update_game()
     if ui_refresh:
