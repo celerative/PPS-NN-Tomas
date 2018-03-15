@@ -114,67 +114,69 @@ class Player:
         # if crash, return False
         return crashed
 
-        def try_move(self, opponents, mode, Model):
-            board = np.zeros((1, 30))
-            move_enable = False
-            for op in opponents:
-                if op.y >= 0 and op.y < CarRaceGame.game_rows:
-                    if op.y % CarRaceGame.car_height == 0:
-                        move_enable = True
-                    board[0][op.y // CarRaceGame.car_height * 5 + op.x // CarRaceGame.car_width] = 1
-            self._next_x = self.x
-            board[0][self.y // CarRaceGame.car_height * 5 + self.x // CarRaceGame.car_width] = .5
-            if mode == 0:
-                # Mode 0: Manual game
-                self._manual()
-                multi_steps = False
-            elif mode == 2:
-                # Mode 2: Train NET with Reinforce Learning
-                # if np.random.random() > 0.95:  # percentage to take random action
-                if False:  # force to predict action
-                    if move_enable:
-                        self._next_x = np.random.randint(5) * CarRaceGame.car_width
-                        print("RANDOM")
-                else:
-                    self._network(board, Model)
-                multi_steps = True
+    def try_move(self, opponents, mode, Model):
+        board = np.zeros((1, 30))
+        move_enable = False
+        for op in opponents:
+            if op.y >= 0 and op.y < CarRaceGame.game_rows:
+                if op.y % CarRaceGame.car_height == 0:
+                    move_enable = True
+                board[0][op.y // CarRaceGame.car_height * 5 + op.x // CarRaceGame.car_width] = 1
+        self._next_x = self.x
+        board[0][self.y // CarRaceGame.car_height * 5 + self.x // CarRaceGame.car_width] = .5
+        if mode == 0:
+            # Mode 0: Manual game
+            self._manual()
+            multi_steps = False
+        elif mode == 2:
+            # Mode 2: Train NET with Reinforce Learning
+            # if np.random.random() > 0.95:  # percentage to take random action
+            if False:  # force to predict action
+                if move_enable:
+                    self._next_x = np.random.randint(5) * CarRaceGame.car_width
+                    print("RANDOM")
             else:
-                # Mode 1: Run Trained NET
-                # Mode 3: Train NET with Evolutive Population
                 self._network(board, Model)
-                multi_steps = True
-            #####################
-            last_x = self.x
-            x = self.x
-            crashed = self.check_crash(opponents)
-            if not crashed:
-                if multi_steps:
-                    while self._next_x != self.x:
-                        if self._next_x < self.x:
-                            x -= CarRaceGame.car_width
-                            print("<--")
-                        else:
-                            x += CarRaceGame.car_width
-                            print("-->")
-                        crashed = self.check_crash(opponents, x)
-                        if crashed:
-                            break
-                else:
-                    if self._next_x < x:
+            multi_steps = True
+        else:
+            # Mode 1: Run Trained NET
+            # Mode 3: Train NET with Evolutive Population
+            self._network(board, Model)
+            multi_steps = True
+        #####################
+        last_x = self.x
+        x = self.x
+        crashed = self.check_crash(opponents, x)
+        if not crashed:
+            if multi_steps:
+                while self._next_x != self.x:
+                    if self._next_x < self.x:
+                        x -= CarRaceGame.car_width
                         print("<--")
-                    elif self._next_x > x:
+                    else:
+                        x += CarRaceGame.car_width
                         print("-->")
-                    x = self._next_x
                     crashed = self.check_crash(opponents, x)
-            # if crash, return False
-            return crashed, x, last_x
+                    if crashed:
+                        break
+            else:
+                if self._next_x < x:
+                    print("<--")
+                elif self._next_x > x:
+                    print("-->")
+                x = self._next_x
+                crashed = self.check_crash(opponents, x)
+        # if crash, return False
+        return crashed, x, last_x
 
     def check_crash(self, opponents, x=None):
         if x is None:
             x = self.x
         for op in opponents:
             if np.absolute(op.x - x) < CarRaceGame.car_width and np.absolute(op.y - self.y) < CarRaceGame.car_height:
+                self.dead = True
                 return True
+        self.dead = False
         return False
 
     def _manual(self):
@@ -350,6 +352,8 @@ class CarRaceGame:
             else:
                 self.ES_is_running = True
                 self.init_ES()
+        if self.model is None:
+            self.load_model_file(self.model_path)
         # player
         self.player = Player(2 * CarRaceGame.car_width, 5 * CarRaceGame.car_height)
         self.draw_car(self.player.x, self.player.y, self._game_color_player)
@@ -403,11 +407,11 @@ class CarRaceGame:
                     Model = self.ES_ind.model
                 # player
                 game_state_crashed = self.player.move(self.opponents, CarRaceUI.ui_state_mode, Model)
-                crash, x = self.player.try_move(self.opponents, CarRaceUI.ui_state_mode, Model)
-                if not crash and self.player.x != x:
-                    self.player.last_x = self.player.x
-                    self.player.x = x
-                    print("TRYYYYYYYYYYYYYYYYYYYYYYYYY")
+                # crash, x, last_x = self.player.try_move(self.opponents, CarRaceUI.ui_state_mode, Model)
+                # if not crash and self.player.x == last_x and x != self.player.x:
+                #     self.player.last_x = self.player.x
+                #     self.player.x = x
+                #     print("TRYYYYYYYYYYYYYYYYYYYYYYYYY")
                 if CarRaceUI.ui_state_mode == 2:
                     # Mode 2: Train NET with Reinforce Learning
                     # save state_next
@@ -440,13 +444,13 @@ class CarRaceGame:
     def load_model_file(self, model_path):
         try:
             self.model = NET_model.NET_model()
-            self.model.load_model(self.model_path)
+            self.model.load_model(model_path)
         except Exception as e:
-            print("Model not found: " + self.model_path)
+            print("Model not found: " + model_path)
             exit()
 
     def init_NET(self, model_path):
-        self.model = self.load_model_file(self.model_path)
+        self.model = self.load_model_file(model_path)
 
     def init_ES(self):
         i = 0
