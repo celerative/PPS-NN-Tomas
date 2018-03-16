@@ -6,6 +6,7 @@ import Buttons
 import NET_model
 import ES
 import RL
+import json
 
 pg.init()
 screen = pg.display.set_mode((500, 500))
@@ -49,6 +50,7 @@ else:
 print("Using model: '" + model_path + "'")
 model = None
 model_pred_enable = False
+NET_history = []
 
 # ES
 ES_population_size = 10
@@ -57,11 +59,13 @@ ES_ind = None
 ES_is_running = False
 ES_seed = []
 ES_best_score = 0
+ES_history = []
 
 # RL
 RL_ind = None
 RL_best_score = 0
 RL_games_played = 0
+RL_history = []
 
 
 # game vars
@@ -230,12 +234,31 @@ def init_ES():
 
 
 def init_RL(reset_RL=False):
+    global RL_ind
     if RL_ind is None or reset_RL:
         model = load_model_file(model_path)
-        global RL_ind
-        RL_ind = RL.RL_indiv(model, outcome_activation="softmax", batch_size=50, history_size=200, game_over_state=False)
+        RL_ind = RL.RL_indiv(model, outcome_activation="relu", batch_size=50, history_size=200, game_over_state=False)
         global RL_best_score
         RL_best_score = 0
+    else:
+        if RL_best_score == game_state_score:
+            RL_ind.model.save_model("save_models/RL_fit{:0>3}.h5".format(game_state_score))
+
+
+def save_history(mode):
+    # Mode 1: Run Trained NET
+    if mode == 1:
+        global NET_history
+        NET_history.append({'index': len(NET_history), 'score': game_state_score})
+    # Mode 2: Train NET with Reinforce Learning
+    elif mode == 2:
+        global RL_history
+        RL_history.append({'index': len(RL_history), 'score': game_state_score})
+    # Mode 3: Train NET with Evolutive Population
+    elif mode == 3:
+        global ES_history
+        global ES_indiv
+        ES_history.append({'index': len(ES_history), 'score': game_state_score, 'gen': ES_ind.generation, 'ind_id': ES_ind.indiv_id})
 
 
 def draw_grid():
@@ -398,6 +421,7 @@ def update_game():
     global game_state_running
     global ui_state_mode
     if game_state_crashed:
+        save_history(ui_state_mode)
         if ui_state_mode == 2:
             init_game()
             global RL_games_played
@@ -406,6 +430,7 @@ def update_game():
             init_game()
         else:
             game_state_running = False
+            game_state_crashed = False
     else:
         if game_state_running:
             # walls
@@ -582,3 +607,10 @@ while not done:
     draw_ui()
     pg.display.flip()
     clock.tick(ui_state_speed)
+
+with open('stats/NET_history.json', 'w') as outNET:
+    json.dump(NET_history, outNET)
+with open('stats/ES_history.json', 'w') as outES:
+    json.dump(ES_history, outES)
+with open('stats/RL_history.json', 'w') as outRL:
+    json.dump(RL_history, outRL)
